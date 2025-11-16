@@ -1,0 +1,5 @@
+{
+  "name": "RFP Response Generation Application",
+  "description": "An application that processes RFPs to automatically generate professional proposals, client-ready slideshows, and dynamic video pitches from Shaun Coggins Inc. It includes features for project analysis, resource management, and timeline visualization.",
+  "requestFramePermissions": []
+}
