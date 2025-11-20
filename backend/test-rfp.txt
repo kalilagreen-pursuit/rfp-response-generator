@@ -1,0 +1,66 @@
+REQUEST FOR PROPOSAL (RFP)
+City of Springfield - IT Infrastructure Modernization Project
+
+RFP Number: SPR-2024-IT-001
+Issue Date: November 15, 2024
+Due Date: December 15, 2024, 5:00 PM EST
+
+1. INTRODUCTION AND PURPOSE
+
+The City of Springfield is seeking qualified vendors to provide comprehensive IT infrastructure modernization services. This project aims to upgrade our aging network infrastructure, implement cloud-based solutions, and enhance cybersecurity measures across all city departments.
+
+2. SCOPE OF WORK
+
+The selected vendor shall provide:
+- Network infrastructure assessment and upgrade
+- Cloud migration services for city applications
+- Implementation of enhanced cybersecurity measures
+- Staff training and documentation
+- 24/7 technical support for 12 months post-implementation
+
+3. BUDGET
+
+The estimated budget for this project is $500,000 - $750,000. Proposals exceeding this range will not be considered.
+
+4. SUBMISSION REQUIREMENTS
+
+All proposals must include:
+- Company background and qualifications
+- Technical approach and methodology
+- Project timeline and milestones
+- Detailed pricing breakdown
+- References from similar government projects
+- Proof of required certifications
+
+5. EVALUATION CRITERIA
+
+Proposals will be evaluated based on:
+- Technical capability (30%)
+- Experience and qualifications (25%)
+- Price (25%)
+- Project approach (20%)
+
+6. TIMELINE
+
+- RFP Issue Date: November 15, 2024
+- Questions Due: November 25, 2024
+- Responses to Questions: November 30, 2024
+- Proposal Due Date: December 15, 2024, 5:00 PM EST
+- Vendor Presentations: January 10-15, 2025
+- Contract Award: January 31, 2025
+- Project Start: February 15, 2025
+
+7. CONTACT INFORMATION
+
+Project Manager: Jane Smith
+Email: jane.smith@springfield.gov
+Phone: (555) 123-4567
+
+All questions must be submitted in writing to the email address above.
+
+8. TERMS AND CONDITIONS
+
+- All proposals become property of the City
+- The City reserves the right to reject any or all proposals
+- Equal opportunity requirements apply
+- Insurance and bonding requirements per city standards

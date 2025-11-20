@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { supabaseAnon } from '../utils/supabase.js';
+import { testGeminiConnection } from '../services/gemini.service.js';
 
 const router = Router();
 
@@ -57,6 +58,36 @@ router.get('/supabase', async (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Failed to connect to Supabase',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Test Gemini API connection
+router.get('/gemini', async (_req, res) => {
+  try {
+    const result = await testGeminiConnection();
+
+    if (result.success) {
+      res.json({
+        status: 'success',
+        message: 'Gemini API connection successful!',
+        model: result.model,
+        response: result.message,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({
+        status: 'error',
+        message: 'Failed to connect to Gemini API',
+        model: result.model,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to test Gemini API',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }

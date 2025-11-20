@@ -5,6 +5,7 @@ import testRoutes from './routes/test.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import profileRoutes from './routes/profile.routes.js';
 import documentRoutes from './routes/document.routes.js';
+import rfpRoutes from './routes/rfp.routes.js';
 
 dotenv.config();
 
@@ -62,6 +63,14 @@ app.get('/api', (req, res) => {
         download: 'GET /api/documents/:id/download',
         delete: 'DELETE /api/documents/:id',
         stats: 'GET /api/documents/stats'
+      },
+      rfp: {
+        list: 'GET /api/rfp',
+        upload: 'POST /api/rfp/upload',
+        get: 'GET /api/rfp/:id',
+        reparse: 'POST /api/rfp/:id/reparse',
+        download: 'GET /api/rfp/:id/download',
+        delete: 'DELETE /api/rfp/:id'
       }
     }
   });
@@ -78,6 +87,9 @@ app.use('/api/profile', profileRoutes);
 
 // Document routes
 app.use('/api/documents', documentRoutes);
+
+// RFP routes
+app.use('/api/rfp', rfpRoutes);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

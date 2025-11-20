@@ -1,0 +1,278 @@
+### RFP Response Generator API Tests
+### Use with REST Client extension for VS Code
+### Install: https://marketplace.visualstudio.com/items?itemName=humao.rest-client
+
+@baseUrl = http://localhost:3001/api
+@accessToken = YOUR_ACCESS_TOKEN_HERE
+
+### Health Check
+GET http://localhost:3001/health
+
+###
+
+### API Info
+GET {{baseUrl}}
+
+###
+
+### Test Supabase Connection
+GET {{baseUrl}}/test/supabase
+
+###
+
+###########################################
+### AUTHENTICATION ENDPOINTS
+###########################################
+
+### Register New User
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "demo@example.com",
+  "password": "SecurePassword123",
+  "companyName": "Demo Company LLC"
+}
+
+###
+
+### Login
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "demo@example.com",
+  "password": "SecurePassword123"
+}
+
+###
+
+### Get Current User (requires token)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Logout (requires token)
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Refresh Token
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "YOUR_REFRESH_TOKEN_HERE"
+}
+
+###
+
+### Request Password Reset
+POST {{baseUrl}}/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "demo@example.com"
+}
+
+###
+
+###########################################
+### PROFILE ENDPOINTS
+###########################################
+
+### Get Own Profile (requires token)
+GET {{baseUrl}}/profile
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Update Profile (requires token)
+PUT {{baseUrl}}/profile
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "companyName": "Updated Demo Company LLC",
+  "industry": "Technology",
+  "contactInfo": {
+    "phone": "555-1234",
+    "website": "https://example.com",
+    "email": "contact@example.com",
+    "address": "123 Main St, City, State 12345"
+  },
+  "visibility": "public"
+}
+
+###
+
+### Get Marketplace Profiles (public)
+GET {{baseUrl}}/profile/marketplace?limit=10&offset=0
+
+###
+
+### Search Marketplace Profiles
+GET {{baseUrl}}/profile/marketplace?industry=Technology&search=consulting&limit=5
+
+###
+
+### Get Public Profile by ID
+GET {{baseUrl}}/profile/PROFILE_ID_HERE
+
+###
+
+###########################################
+### DOCUMENT ENDPOINTS
+###########################################
+
+### Get All Documents (requires token)
+GET {{baseUrl}}/documents
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Get Documents by Type (requires token)
+GET {{baseUrl}}/documents?type=capability&limit=20&offset=0
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Get Document Statistics (requires token)
+GET {{baseUrl}}/documents/stats
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Upload Single Document (requires token)
+# Note: This requires multipart/form-data which is better tested with:
+# - Postman
+# - Insomnia
+# - Thunder Client
+# - cURL command below
+
+### cURL command for file upload:
+# curl -X POST http://localhost:3001/api/documents/upload \
+#   -H "Authorization: Bearer YOUR_TOKEN" \
+#   -F "file=@/path/to/document.pdf" \
+#   -F "type=capability"
+
+###
+
+### Get Document by ID (requires token)
+GET {{baseUrl}}/documents/DOCUMENT_ID_HERE
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Download Document (requires token)
+GET {{baseUrl}}/documents/DOCUMENT_ID_HERE/download
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Delete Document (requires token)
+DELETE {{baseUrl}}/documents/DOCUMENT_ID_HERE
+Authorization: Bearer {{accessToken}}
+
+###
+
+###########################################
+### WORKFLOW EXAMPLE
+###########################################
+
+### STEP 1: Register a new user
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "workflow-test@example.com",
+  "password": "WorkflowTest123",
+  "companyName": "Workflow Test Company"
+}
+
+###
+
+### STEP 2: Login and copy the access_token from response
+# @name workflowLogin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "workflow-test@example.com",
+  "password": "WorkflowTest123"
+}
+
+###
+
+### STEP 3: Get your profile (paste token from Step 2 into @accessToken variable at top)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{accessToken}}
+
+###
+
+### STEP 4: Update your profile
+PUT {{baseUrl}}/profile
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "companyName": "My Updated Company",
+  "industry": "Consulting",
+  "contactInfo": {
+    "phone": "555-9876",
+    "website": "https://mycompany.com"
+  },
+  "visibility": "public"
+}
+
+###
+
+### STEP 5: Browse marketplace to see your public profile
+GET {{baseUrl}}/profile/marketplace
+
+###
+
+### STEP 6: Get your document statistics
+GET {{baseUrl}}/documents/stats
+Authorization: Bearer {{accessToken}}
+
+###
+
+###########################################
+### NOTES
+###########################################
+
+# To use this file:
+# 1. Install REST Client extension in VS Code
+# 2. Open this file in VS Code
+# 3. Click "Send Request" above any request
+# 4. After login, copy the access_token from response
+# 5. Paste it into @accessToken variable at the top
+# 6. Now you can test all authenticated endpoints
+
+# For file uploads, use one of these tools:
+# - Thunder Client (VS Code extension)
+# - Postman (desktop app)
+# - Insomnia (desktop app)
+# - cURL (command line)
+
+# Example cURL commands:
+#
+# Register:
+# curl -X POST http://localhost:3001/api/auth/register \
+#   -H "Content-Type: application/json" \
+#   -d '{"email":"test@example.com","password":"Test123","companyName":"Test Co"}'
+#
+# Login:
+# curl -X POST http://localhost:3001/api/auth/login \
+#   -H "Content-Type: application/json" \
+#   -d '{"email":"test@example.com","password":"Test123"}'
+#
+# Upload file:
+# curl -X POST http://localhost:3001/api/documents/upload \
+#   -H "Authorization: Bearer YOUR_TOKEN" \
+#   -F "file=@/path/to/file.pdf" \
+#   -F "type=capability"
