@@ -29,6 +29,7 @@ import RfpViewerModal from './components/RfpViewerModal';
 import WhitepaperStudioView from './components/WhitepaperStudioView';
 import IndustryPlaybookEditor from './components/IndustryPlaybookEditor';
 import DocumentViewerModal from './components/DocumentViewerModal';
+import MyInvitationsView from './components/MyInvitationsView';
 
 const allSalesStages: SalesStage[] = ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Closed-Won', 'Closed-Lost'];
 
@@ -485,6 +486,8 @@ const App: React.FC = () => {
                 );
             case 'whitepaperStudio':
                 return <WhitepaperStudioView projects={projectFolders} />;
+            case 'invitations':
+                return <MyInvitationsView />;
             default: return null;
         }
     };

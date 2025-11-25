@@ -8,6 +8,7 @@ import documentRoutes from './routes/document.routes.js';
 import rfpRoutes from './routes/rfp.routes.js';
 import proposalRoutes from './routes/proposal.routes.js';
 import networkRoutes from './routes/network.routes.js';
+import teamRoutes from './routes/team.routes.js';
 
 dotenv.config();
 
@@ -95,6 +96,14 @@ app.get('/api', (req, res) => {
         deleteConnection: 'DELETE /api/network/connections/:id',
         searchByCapability: 'GET /api/network/connections/search/capabilities',
         stats: 'GET /api/network/connections/stats'
+      },
+      team: {
+        invite: 'POST /api/team/invite',
+        getProposalTeam: 'GET /api/team/proposal/:proposalId',
+        getMyInvitations: 'GET /api/team/invitations',
+        acceptInvitation: 'POST /api/team/invitations/:id/accept',
+        declineInvitation: 'POST /api/team/invitations/:id/decline',
+        removeTeamMember: 'DELETE /api/team/proposal/:proposalId/member/:memberId'
       }
     }
   });
@@ -120,6 +129,9 @@ app.use('/api/proposals', proposalRoutes);
 
 // Network routes
 app.use('/api/network', networkRoutes);
+
+// Team invitation routes
+app.use('/api/team', teamRoutes);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

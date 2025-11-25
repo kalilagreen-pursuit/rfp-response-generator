@@ -1,6 +1,6 @@
 
 
-export type View = 'dashboard' | 'projects' | 'resources' | 'profile' | 'calendar' | 'crm' | 'creativeStudio' | 'whitepaperStudio' | 'playbooks' | 'createProject';
+export type View = 'dashboard' | 'projects' | 'resources' | 'profile' | 'calendar' | 'crm' | 'creativeStudio' | 'whitepaperStudio' | 'playbooks' | 'createProject' | 'invitations';
 
 export type ProposalTemplate = 'standard' | 'creative' | 'technical';
 

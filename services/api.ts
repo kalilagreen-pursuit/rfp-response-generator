@@ -262,10 +262,60 @@ export const proposalsAPI = {
   },
 };
 
+// Team Invitations API
+export const teamAPI = {
+  invite: async (data: {
+    proposalId: string;
+    memberEmail: string;
+    role: string;
+    rateRange?: { min: number; max: number };
+    message?: string;
+  }) => {
+    const response = await authFetch('/team/invite', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  getProposalTeam: async (proposalId: string) => {
+    const response = await authFetch(`/team/proposal/${proposalId}`);
+    return response.json();
+  },
+
+  getMyInvitations: async () => {
+    const response = await authFetch('/team/invitations');
+    return response.json();
+  },
+
+  acceptInvitation: async (invitationId: string, token?: string) => {
+    const response = await authFetch(`/team/invitations/${invitationId}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+    return response.json();
+  },
+
+  declineInvitation: async (invitationId: string) => {
+    const response = await authFetch(`/team/invitations/${invitationId}/decline`, {
+      method: 'POST',
+    });
+    return response.json();
+  },
+
+  removeTeamMember: async (proposalId: string, memberId: string) => {
+    const response = await authFetch(`/team/proposal/${proposalId}/member/${memberId}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  },
+};
+
 export default {
   auth: authAPI,
   profile: profileAPI,
   documents: documentsAPI,
   rfp: rfpAPI,
   proposals: proposalsAPI,
+  team: teamAPI,
 };
