@@ -3,20 +3,17 @@ import React, { createContext, useState, useContext, useEffect, useCallback, use
 import type { ProjectFolder, TeamMember, ProfileData, ToastMessage, ProfileDocument, SalesStage, ActivityLogEntry, TeamProfile, IndustryPlaybook, LearnedPreference } from '../types';
 import { calculateProjectDatesAndPhases } from '../utils/timelineParser';
 import { playbookTemplates } from '../utils/playbookTemplates';
-
-// This is a type definition for the old status system, used only for migration.
-type OldProjectStatus = 'Draft' | 'In Progress' | 'Completed' | 'Archived';
+import { profileAPI, proposalsAPI, getAuthToken } from '../services/api';
 
 interface AppContextType {
     projectFolders: ProjectFolder[];
     teamMembers: TeamMember[];
     profileData: ProfileData;
     industryPlaybooks: IndustryPlaybook[];
-    isOfflineMode: boolean;
+    isLoading: boolean;
     toasts: ToastMessage[];
     addToast: (message: string, type?: 'error' | 'success' | 'info') => void;
     removeToast: (id: string) => void;
-    setOfflineMode: (isOffline: boolean) => void;
     setProfileData: (data: ProfileData) => void;
     addProjectFolder: (folder: ProjectFolder, idToReplace?: string) => void;
     deleteProjectFolder: (id: string) => void;
@@ -35,6 +32,7 @@ interface AppContextType {
     closeTour: () => void;
     completeOnboarding: () => void;
     importData: (data: { projectFolders: ProjectFolder[], teamMembers: TeamMember[], profileData: ProfileData, industryPlaybooks?: IndustryPlaybook[] }) => void;
+    refreshData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -47,196 +45,266 @@ const initialTeamMembers: TeamMember[] = [
     { id: crypto.randomUUID(), role: 'AI/ML Engineer', lowRate: 110, highRate: 140, project: 'General Project Resources' },
 ];
 
+// Helper to convert backend proposal to frontend ProjectFolder
+const backendToProjectFolder = (proposal: any): ProjectFolder => {
+    const content = proposal.content || {};
+    return {
+        id: proposal.id,
+        folderName: content.folderName || proposal.title,
+        rfpFileName: content.rfpFileName || 'Unknown',
+        rfpContent: content.rfpContent || '',
+        rfpFileDataUrl: content.rfpFileDataUrl || '',
+        proposal: content.proposal || {},
+        generatedDate: content.generatedDate || proposal.created_at,
+        chatHistory: content.chatHistory || [],
+        templateId: content.templateId || proposal.template || 'standard',
+        teamId: content.teamId || '',
+        playbookId: content.playbookId || null,
+        useGoogleSearch: content.useGoogleSearch || false,
+        salesStage: content.salesStage || 'Prospecting',
+        probability: content.probability ?? 10,
+        nextStepDate: content.nextStepDate || null,
+        activityLog: content.activityLog || [],
+        crmTasks: content.crmTasks || [],
+        startDate: content.startDate,
+        endDate: content.endDate,
+        phases: content.phases || [],
+        scorecard: content.scorecard,
+        slideshow: content.slideshow,
+        videoScript: content.videoScript,
+        insights: content.insights,
+        internalNotes: content.internalNotes || [],
+        internalNotesSummary: content.internalNotesSummary,
+        leadScore: content.leadScore,
+        leadScoreReasoning: content.leadScoreReasoning,
+    };
+};
+
+// Helper to convert frontend ProjectFolder to backend format
+const projectFolderToBackend = (folder: ProjectFolder) => {
+    return {
+        title: folder.proposal?.projectName || folder.folderName,
+        status: folder.salesStage === 'Closed-Won' ? 'submitted' :
+                folder.salesStage === 'Closed-Lost' ? 'withdrawn' : 'draft',
+        template: folder.templateId || 'standard',
+        content: {
+            folderName: folder.folderName,
+            rfpFileName: folder.rfpFileName,
+            rfpContent: folder.rfpContent,
+            rfpFileDataUrl: folder.rfpFileDataUrl,
+            proposal: folder.proposal,
+            generatedDate: folder.generatedDate,
+            chatHistory: folder.chatHistory,
+            templateId: folder.templateId,
+            teamId: folder.teamId,
+            playbookId: folder.playbookId,
+            useGoogleSearch: folder.useGoogleSearch,
+            salesStage: folder.salesStage,
+            probability: folder.probability,
+            nextStepDate: folder.nextStepDate,
+            activityLog: folder.activityLog,
+            crmTasks: folder.crmTasks,
+            startDate: folder.startDate,
+            endDate: folder.endDate,
+            phases: folder.phases,
+            scorecard: folder.scorecard,
+            slideshow: folder.slideshow,
+            videoScript: folder.videoScript,
+            insights: folder.insights,
+            internalNotes: folder.internalNotes,
+            internalNotesSummary: folder.internalNotesSummary,
+            leadScore: folder.leadScore,
+            leadScoreReasoning: folder.leadScoreReasoning,
+        }
+    };
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [projectFolders, setProjectFolders] = useState<ProjectFolder[]>([]);
-    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-    const [profileData, setProfileData] = useState<ProfileData>({ teams: [], smsNumber: null });
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
+    const [profileData, setProfileDataState] = useState<ProfileData>({ teams: [], smsNumber: null });
     const [industryPlaybooks, setIndustryPlaybooks] = useState<IndustryPlaybook[]>([]);
-    const [isOfflineMode, setIsOfflineMode] = useState<boolean>(true);
-    const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
     const [toasts, setToasts] = useState<ToastMessage[]>([]);
-    
+
     const [isTourOpen, setIsTourOpen] = useState(false);
     const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(true);
 
-    useEffect(() => {
+    const removeToast = useCallback((id: string) => {
+        setToasts(currentToasts => currentToasts.filter(toast => toast.id !== id));
+    }, []);
+
+    const addToast = useCallback((message: string, type: 'error' | 'success' | 'info' = 'error') => {
+        const id = crypto.randomUUID();
+        setToasts(currentToasts => [...currentToasts, { id, message, type }]);
+    }, []);
+
+    // Load data from backend on mount
+    const loadDataFromBackend = useCallback(async () => {
+        if (!getAuthToken()) {
+            setIsLoading(false);
+            return;
+        }
+
+        setIsLoading(true);
         try {
-            const savedOfflineMode = localStorage.getItem('isOfflineMode');
-            const offlineMode = savedOfflineMode ? JSON.parse(savedOfflineMode) : true;
-            setIsOfflineMode(offlineMode);
-
-            if (offlineMode) {
-                const savedFolders = localStorage.getItem('projectFolders');
-                if (savedFolders) {
-                    const parsedFolders: any[] = JSON.parse(savedFolders);
-                    
-                    const migratedFolders = parsedFolders.map((folder): ProjectFolder => {
-                        // --- START MIGRATION LOGIC ---
-                        let salesStage: SalesStage = 'Proposal';
-                        let probability = 50;
-
-                        if (folder.status) { // if old status field exists, migrate it
-                            const oldStatus = folder.status as OldProjectStatus;
-                            switch (oldStatus) {
-                                case 'Draft':       salesStage = 'Qualification'; probability = 25; break;
-                                case 'In Progress': salesStage = 'Proposal'; probability = 50; break;
-                                case 'Completed':   salesStage = 'Closed-Won'; probability = 100; break;
-                                case 'Archived':    salesStage = 'Closed-Lost'; probability = 0; break;
-                                default:            salesStage = 'Proposal'; probability = 50;
-                            }
-                        }
-
-                        let activityLog: ActivityLogEntry[] = folder.activityLog || [];
-                        if (folder.crmNotes && typeof folder.crmNotes === 'string' && folder.crmNotes.trim().length > 0) {
-                            const noteExists = activityLog.some(entry => entry.details === folder.crmNotes);
-                            if (!noteExists) {
-                                activityLog.unshift({
-                                    id: crypto.randomUUID(),
-                                    type: 'Note',
-                                    date: folder.generatedDate,
-                                    details: folder.crmNotes
-                                });
-                            }
-                        }
-
-                        const { startDate, endDate, phases } = calculateProjectDatesAndPhases(folder.generatedDate, folder.proposal.projectTimeline);
-                        
-                        const newFolder: ProjectFolder = {
-                            ...folder,
-                            salesStage: folder.salesStage || salesStage,
-                            probability: folder.probability ?? probability,
-                            nextStepDate: folder.nextStepDate || null,
-                            activityLog: activityLog,
-                            crmTasks: folder.crmTasks || [],
-                            startDate: folder.startDate || startDate,
-                            endDate: folder.endDate || endDate,
-                            phases: folder.phases || phases,
-                            chatHistory: folder.chatHistory || [],
-                            useGoogleSearch: folder.useGoogleSearch || false,
-                        };
-
-                        delete (newFolder as any).status;
-                        delete (newFolder as any).crmNotes;
-                        delete (newFolder as any).visualAsset;
-                        delete (newFolder as any).generatedImageAsset;
-                        delete (newFolder as any).videoPitchUri;
-                        delete (newFolder as any).visualScript;
-
-                        
-                        return newFolder;
-                    });
-                    setProjectFolders(migratedFolders);
-                }
-                
-                const savedMembers = localStorage.getItem('teamMembers');
-                setTeamMembers(savedMembers ? JSON.parse(savedMembers) : initialTeamMembers);
-                
-                const savedProfileData = localStorage.getItem('profileData');
-                if (savedProfileData) {
-                    const parsedData = JSON.parse(savedProfileData);
-                    // Migration from old single-profile to new multi-team structure
-                    if (parsedData.capabilitiesStatement || parsedData.resume) {
-                        const defaultTeam: TeamProfile = {
-                            id: crypto.randomUUID(),
-                            name: 'General Team',
-                            capabilitiesStatement: (Array.isArray(parsedData.capabilitiesStatement) ? parsedData.capabilitiesStatement : []).map((d: any) => ({...d, id: d.id || crypto.randomUUID()})),
-                            resume: (Array.isArray(parsedData.resume) ? parsedData.resume : []).map((d: any) => ({...d, id: d.id || crypto.randomUUID()})),
-                        };
-                        setProfileData({
-                            teams: [defaultTeam],
-                            smsNumber: parsedData.smsNumber || null,
-                        });
-                    } else { // It's the new format
-                        setProfileData(parsedData);
-                    }
-                }
-                const savedPlaybooks = localStorage.getItem('industryPlaybooks');
-                setIndustryPlaybooks(savedPlaybooks ? JSON.parse(savedPlaybooks) : []);
-
-            } else {
-                 setTeamMembers(initialTeamMembers);
+            // Load proposals
+            const proposalsResponse = await proposalsAPI.list();
+            if (proposalsResponse.proposals) {
+                const folders = proposalsResponse.proposals.map(backendToProjectFolder);
+                setProjectFolders(folders);
             }
 
+            // Load profile
+            const profileResponse = await profileAPI.get();
+            if (profileResponse.profile) {
+                const profile = profileResponse.profile;
+                const contactInfo = profile.contact_info || {};
+
+                // Convert backend profile to frontend format
+                // Teams, teamMembers, industryPlaybooks are stored in contact_info
+                setProfileDataState({
+                    teams: contactInfo.teams || [],
+                    smsNumber: contactInfo.sms || null,
+                    companyName: profile.company_name,
+                });
+
+                // Load team members from contact_info if available
+                if (contactInfo.teamMembers) {
+                    setTeamMembers(contactInfo.teamMembers);
+                }
+
+                // Load playbooks from contact_info if available
+                if (contactInfo.industryPlaybooks) {
+                    setIndustryPlaybooks(contactInfo.industryPlaybooks);
+                }
+            }
+
+            // Check onboarding status from localStorage (UI preference)
             const savedOnboarding = localStorage.getItem('hasCompletedOnboarding');
             const completed = savedOnboarding ? JSON.parse(savedOnboarding) : false;
             setHasCompletedOnboarding(completed);
-
             if (!completed) {
                 setIsTourOpen(true);
             }
 
         } catch (error) {
-            console.error("Failed to parse from localStorage on initial load", error);
-            setTeamMembers(initialTeamMembers);
-            setHasCompletedOnboarding(false);
-            setIsTourOpen(true);
+            console.error('Failed to load data from backend:', error);
+            addToast('Failed to load data. Please try again.', 'error');
         } finally {
-            setIsInitialLoad(false);
+            setIsLoading(false);
         }
-    }, []);
+    }, [addToast]);
 
     useEffect(() => {
-        if (isInitialLoad) return;
-        try {
-            localStorage.setItem('isOfflineMode', JSON.stringify(isOfflineMode));
-            if (isOfflineMode) {
-                // Sanitize project folders to remove large file data before saving
-                const foldersToSave = projectFolders.map(folder => {
-                    const { rfpFileDataUrl, ...restOfFolder } = folder;
-                    
-                    const sanitizedVideoScript = folder.videoScript
-                        ? {
-                            ...folder.videoScript,
-                            scenes: folder.videoScript.scenes.map(scene => {
-                                const { imageUrl, ...restOfScene } = scene;
-                                return restOfScene;
-                            }),
-                          }
-                        : undefined;
-                    
-                    return { ...restOfFolder, videoScript: sanitizedVideoScript };
-                });
-                localStorage.setItem('projectFolders', JSON.stringify(foldersToSave));
+        loadDataFromBackend();
+    }, [loadDataFromBackend]);
 
-                localStorage.setItem('teamMembers', JSON.stringify(teamMembers));
-                localStorage.setItem('industryPlaybooks', JSON.stringify(industryPlaybooks));
+    // Save onboarding status to localStorage (UI preference only)
+    useEffect(() => {
+        localStorage.setItem('hasCompletedOnboarding', JSON.stringify(hasCompletedOnboarding));
+    }, [hasCompletedOnboarding]);
 
-                // Sanitize profile data to remove large file data before saving
-                const profileDataToSave = {
-                    ...profileData,
-                    teams: profileData.teams.map(team => ({
-                        ...team,
-                        capabilitiesStatement: team.capabilitiesStatement.map(({ fileDataUrl, ...rest }) => rest),
-                        resume: team.resume.map(({ fileDataUrl, ...rest }) => rest),
-                    })),
-                };
-                localStorage.setItem('profileData', JSON.stringify(profileDataToSave));
-                
-                localStorage.setItem('hasCompletedOnboarding', JSON.stringify(hasCompletedOnboarding));
-            }
-        } catch(error) {
-             console.error("Failed to save to localStorage", error);
-             addToast('Could not save data to local storage. It may be full.', 'error');
-        }
-    }, [projectFolders, teamMembers, profileData, industryPlaybooks, isOfflineMode, isInitialLoad, hasCompletedOnboarding]);
-    
-    const addProjectFolder = useCallback((folder: ProjectFolder, idToReplace?: string) => {
+    const refreshData = useCallback(async () => {
+        await loadDataFromBackend();
+    }, [loadDataFromBackend]);
+
+    const addProjectFolder = useCallback(async (folder: ProjectFolder, idToReplace?: string) => {
+        // Update local state immediately for responsiveness
         setProjectFolders(prev => {
             const filtered = idToReplace ? prev.filter(p => p.id !== idToReplace) : prev;
             return [folder, ...filtered];
         });
-    }, []);
-    
-    const deleteProjectFolder = useCallback((id: string) => {
-        setProjectFolders(prev => prev.filter(p => p.id !== id));
+
+        // Sync to backend
+        if (getAuthToken()) {
+            try {
+                const backendData = projectFolderToBackend(folder);
+
+                if (idToReplace) {
+                    // Update existing
+                    await proposalsAPI.update(idToReplace, backendData);
+                } else {
+                    // Create new - we need to handle this differently since backend expects rfpId
+                    // For now, we'll create a proposal directly with the content
+                    const response = await fetch('http://localhost:3001/api/proposals', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${getAuthToken()}`,
+                        },
+                        body: JSON.stringify(backendData),
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        // Update local folder with backend ID
+                        setProjectFolders(prev => prev.map(p =>
+                            p.id === folder.id ? { ...p, id: data.proposal?.id || p.id } : p
+                        ));
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to sync project to backend:', error);
+            }
+        }
     }, []);
 
-    const updateProjectFolder = useCallback((updatedFolder: ProjectFolder) => {
-        setProjectFolders(prev => prev.map(p => p.id === updatedFolder.id ? updatedFolder : p));
+    const deleteProjectFolder = useCallback(async (id: string) => {
+        // Update local state immediately
+        setProjectFolders(prev => prev.filter(p => p.id !== id));
+
+        // Sync to backend
+        if (getAuthToken()) {
+            try {
+                await proposalsAPI.delete(id);
+            } catch (error) {
+                console.error('Failed to delete project from backend:', error);
+            }
+        }
     }, []);
+
+    const updateProjectFolder = useCallback(async (updatedFolder: ProjectFolder) => {
+        // Update local state immediately
+        setProjectFolders(prev => prev.map(p => p.id === updatedFolder.id ? updatedFolder : p));
+
+        // Sync to backend
+        if (getAuthToken()) {
+            try {
+                const backendData = projectFolderToBackend(updatedFolder);
+                await proposalsAPI.update(updatedFolder.id, backendData);
+            } catch (error) {
+                console.error('Failed to update project in backend:', error);
+            }
+        }
+    }, []);
+
+    const setProfileData = useCallback(async (data: ProfileData) => {
+        // Update local state immediately
+        setProfileDataState(data);
+
+        // Sync to backend
+        if (getAuthToken()) {
+            try {
+                await profileAPI.update({
+                    company_name: (data as any).companyName,
+                    contact_info: {
+                        sms: data.smsNumber,
+                        teams: data.teams,
+                        teamMembers: teamMembers,
+                        industryPlaybooks: industryPlaybooks,
+                    },
+                });
+            } catch (error) {
+                console.error('Failed to sync profile to backend:', error);
+            }
+        }
+    }, [teamMembers, industryPlaybooks]);
 
     const addTeamMember = useCallback((member: Omit<TeamMember, 'id'>) => {
-        setTeamMembers(prev => [...prev, { ...member, id: crypto.randomUUID() }]);
+        const newMember = { ...member, id: crypto.randomUUID() };
+        setTeamMembers(prev => [...prev, newMember]);
+        // Team members are synced as part of profile
     }, []);
 
     const updateTeamMember = useCallback((updatedMember: TeamMember) => {
@@ -252,8 +320,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, []);
 
     const addIndustryPlaybook = useCallback((name: string, templateKey?: string) => {
-        const template = templateKey && playbookTemplates[templateKey] 
-            ? playbookTemplates[templateKey] 
+        const template = templateKey && playbookTemplates[templateKey]
+            ? playbookTemplates[templateKey]
             : null;
 
         const newPlaybook: IndustryPlaybook = {
@@ -271,18 +339,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const deleteIndustryPlaybook = useCallback((id: string) => {
         setIndustryPlaybooks(prev => prev.filter(p => p.id !== id));
     }, []);
-    
+
     const addLearnedPreferenceToPlaybook = useCallback((playbookId: string, sectionKey: string, preference: string) => {
         setIndustryPlaybooks(prev => prev.map(playbook => {
             if (playbook.id === playbookId) {
                 const existingPrefIndex = playbook.learnedPreferences.findIndex(p => p.sectionKey === sectionKey);
                 let newPreferences;
                 if (existingPrefIndex > -1) {
-                    // Update existing preference for this section
                     newPreferences = [...playbook.learnedPreferences];
                     newPreferences[existingPrefIndex] = { ...newPreferences[existingPrefIndex], preference };
                 } else {
-                    // Add new preference
                     const newPref: LearnedPreference = { id: crypto.randomUUID(), sectionKey, preference };
                     newPreferences = [...playbook.learnedPreferences, newPref];
                 }
@@ -304,15 +370,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }));
     }, []);
 
-    const removeToast = useCallback((id: string) => {
-        setToasts(currentToasts => currentToasts.filter(toast => toast.id !== id));
-    }, []);
-
-    const addToast = useCallback((message: string, type: 'error' | 'success' | 'info' = 'error') => {
-        const id = crypto.randomUUID();
-        setToasts(currentToasts => [...currentToasts, { id, message, type }]);
-    }, []);
-
     const openTour = useCallback(() => setIsTourOpen(true), []);
     const closeTour = useCallback(() => setIsTourOpen(false), []);
     const completeOnboarding = useCallback(() => {
@@ -320,13 +377,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsTourOpen(false);
     }, []);
 
-    const importData = useCallback((data: { projectFolders: ProjectFolder[], teamMembers: TeamMember[], profileData: ProfileData, industryPlaybooks?: IndustryPlaybook[] }) => {
-        // Basic validation
+    const importData = useCallback(async (data: { projectFolders: ProjectFolder[], teamMembers: TeamMember[], profileData: ProfileData, industryPlaybooks?: IndustryPlaybook[] }) => {
         if (data && Array.isArray(data.projectFolders) && Array.isArray(data.teamMembers) && typeof data.profileData === 'object' && data.profileData !== null) {
             setProjectFolders(data.projectFolders);
             setTeamMembers(data.teamMembers);
-            setProfileData(data.profileData);
+            setProfileDataState(data.profileData);
             setIndustryPlaybooks(data.industryPlaybooks || []);
+
+            // Sync imported data to backend
+            if (getAuthToken()) {
+                try {
+                    // Sync profile
+                    await profileAPI.update({
+                        company_name: (data.profileData as any).companyName,
+                        contact_info: { sms: data.profileData.smsNumber },
+                        teams: data.profileData.teams,
+                        teamMembers: data.teamMembers,
+                        industryPlaybooks: data.industryPlaybooks || [],
+                    });
+
+                    // Sync each project
+                    for (const folder of data.projectFolders) {
+                        const backendData = projectFolderToBackend(folder);
+                        await proposalsAPI.update(folder.id, backendData);
+                    }
+                } catch (error) {
+                    console.error('Failed to sync imported data to backend:', error);
+                }
+            }
+
             addToast('Data imported successfully!', 'success');
         } else {
             addToast('Invalid or corrupted backup file format.', 'error');
@@ -338,11 +417,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         teamMembers,
         profileData,
         industryPlaybooks,
-        isOfflineMode,
+        isLoading,
         toasts,
         addToast,
         removeToast,
-        setOfflineMode: setIsOfflineMode,
         setProfileData,
         addProjectFolder,
         deleteProjectFolder,
@@ -361,7 +439,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         closeTour,
         completeOnboarding,
         importData,
-    }), [projectFolders, teamMembers, profileData, industryPlaybooks, isOfflineMode, toasts, addToast, removeToast, addProjectFolder, deleteProjectFolder, updateProjectFolder, addTeamMember, updateTeamMember, deleteTeamMember, updateIndustryPlaybook, addIndustryPlaybook, deleteIndustryPlaybook, addLearnedPreferenceToPlaybook, deleteLearnedPreferenceFromPlaybook, setIsOfflineMode, setProfileData, isTourOpen, hasCompletedOnboarding, openTour, closeTour, completeOnboarding, importData]);
+        refreshData,
+    }), [projectFolders, teamMembers, profileData, industryPlaybooks, isLoading, toasts, addToast, removeToast, addProjectFolder, deleteProjectFolder, updateProjectFolder, addTeamMember, updateTeamMember, deleteTeamMember, updateIndustryPlaybook, addIndustryPlaybook, deleteIndustryPlaybook, addLearnedPreferenceToPlaybook, deleteLearnedPreferenceFromPlaybook, setProfileData, isTourOpen, hasCompletedOnboarding, openTour, closeTour, completeOnboarding, importData, refreshData]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

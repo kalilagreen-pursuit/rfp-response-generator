@@ -167,7 +167,7 @@ User → React App → Backend API → Gemini API
 **Deliverables:**
 - [ ] Node.js/Express project initialized
 - [ ] PostgreSQL database (local + Railway production)
-- [ ] Prisma ORM setup with initial schema
+- [ ] Supabase setup with initial schema
 - [ ] Database migrations working
 - [ ] AWS S3 bucket configured
 

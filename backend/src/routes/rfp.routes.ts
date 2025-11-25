@@ -4,6 +4,7 @@ import {
   getUserRFPs,
   getRFPById,
   reparseRFP,
+  validateRFP,
   deleteRFP,
   downloadRFP
 } from '../controllers/rfp.controller.js';
@@ -27,6 +28,9 @@ router.get('/:id', authenticate, getRFPById);
 
 // POST /api/rfp/:id/reparse - Re-parse existing RFP
 router.post('/:id/reparse', authenticate, reparseRFP);
+
+// PUT /api/rfp/:id/validate - Validate and update RFP data
+router.put('/:id/validate', authenticate, validateRFP);
 
 // GET /api/rfp/:id/download - Download original RFP file
 router.get('/:id/download', authenticate, downloadRFP);

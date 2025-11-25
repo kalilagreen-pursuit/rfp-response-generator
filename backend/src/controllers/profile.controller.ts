@@ -55,7 +55,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       });
     }
 
-    const { companyName, industry, contactInfo, visibility } = req.body;
+    const { companyName, company_name, industry, contactInfo, contact_info, visibility, teams, teamMembers, industryPlaybooks } = req.body;
 
     // Check if profile exists
     const { data: existingProfile } = await supabase
@@ -66,12 +66,27 @@ export const updateProfile = async (req: Request, res: Response) => {
 
     let profile;
 
+    // Build contact_info object to store all frontend state
+    // Handle both nested (contact_info.teams) and flat (teams) formats
+    const baseContactInfo = contactInfo || contact_info || {};
+    const contactData = { ...baseContactInfo };
+
+    // Use nested values if present, otherwise use flat values
+    if (baseContactInfo.teams !== undefined) contactData.teams = baseContactInfo.teams;
+    else if (teams !== undefined) contactData.teams = teams;
+
+    if (baseContactInfo.teamMembers !== undefined) contactData.teamMembers = baseContactInfo.teamMembers;
+    else if (teamMembers !== undefined) contactData.teamMembers = teamMembers;
+
+    if (baseContactInfo.industryPlaybooks !== undefined) contactData.industryPlaybooks = baseContactInfo.industryPlaybooks;
+    else if (industryPlaybooks !== undefined) contactData.industryPlaybooks = industryPlaybooks;
+
     if (existingProfile) {
       // Update existing profile
       const updateData: any = {};
-      if (companyName !== undefined) updateData.company_name = companyName;
+      if (companyName !== undefined || company_name !== undefined) updateData.company_name = companyName || company_name;
       if (industry !== undefined) updateData.industry = industry;
-      if (contactInfo !== undefined) updateData.contact_info = contactInfo;
+      updateData.contact_info = contactData;
       if (visibility !== undefined) updateData.visibility = visibility;
 
       const { data, error } = await supabase

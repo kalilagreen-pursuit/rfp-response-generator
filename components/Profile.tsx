@@ -161,7 +161,19 @@ const Profile: React.FC<ProfileProps> = ({ onViewDocument }) => {
     const { profileData, setProfileData, addToast, projectFolders, teamMembers, importData } = useAppContext();
     const [sms, setSms] = useState(profileData.smsNumber || '');
     const [isEditingSms, setIsEditingSms] = useState(!profileData.smsNumber);
+    const [companyName, setCompanyName] = useState(profileData.companyName || '');
+    const [isEditingCompanyName, setIsEditingCompanyName] = useState(!profileData.companyName);
     const [newTeamName, setNewTeamName] = useState('');
+
+    const handleCompanyNameSave = () => {
+        if (companyName.trim().length > 0) {
+            setProfileData({ ...profileData, companyName: companyName.trim() });
+            setIsEditingCompanyName(false);
+            addToast('Company name saved successfully.', 'success');
+        } else {
+            addToast('Company name cannot be empty.');
+        }
+    };
 
     const handleSmsSave = () => {
         if (sms.replace(/\D/g, '').length >= 10) {
@@ -290,7 +302,35 @@ const Profile: React.FC<ProfileProps> = ({ onViewDocument }) => {
             <ProfileStrengthMeter profileData={profileData} />
 
             <div className="bg-white p-6 rounded-lg shadow-lg">
-                <h3 className="text-xl font-semibold text-slate-800">Security Information</h3>
+                <h3 className="text-xl font-semibold text-slate-800">Company Information</h3>
+                <p className="text-sm text-slate-500 mb-4">Your company name will appear on generated proposal documents.</p>
+                <div className="flex items-center space-x-4 mb-6">
+                    <div className="flex-grow">
+                        <label htmlFor="company-name" className="block text-sm font-medium text-slate-700">Company Name</label>
+                        <input
+                            id="company-name"
+                            type="text"
+                            placeholder="e.g., Acme Corporation"
+                            value={companyName}
+                            onChange={(e) => setCompanyName(e.target.value)}
+                            disabled={!isEditingCompanyName}
+                            className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400
+                                focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500
+                                disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200 disabled:shadow-none"
+                        />
+                    </div>
+                    {isEditingCompanyName ? (
+                        <button onClick={handleCompanyNameSave} className="self-end p-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors" title="Save Company Name">
+                            <SaveIcon className="h-6 w-6" />
+                        </button>
+                    ) : (
+                        <button onClick={() => setIsEditingCompanyName(true)} className="self-end p-2 bg-slate-200 text-slate-600 rounded-md hover:bg-slate-300 transition-colors" title="Edit Company Name">
+                            <EditIcon className="h-6 w-6" />
+                        </button>
+                    )}
+                </div>
+
+                <h3 className="text-xl font-semibold text-slate-800 border-t pt-6">Security Information</h3>
                 <p className="text-sm text-slate-500 mb-4">An SMS number is required to enable proposal generation.</p>
                 <div className="flex items-center space-x-4">
                     <div className="flex-grow">

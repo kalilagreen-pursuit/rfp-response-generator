@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.routes.js';
 import profileRoutes from './routes/profile.routes.js';
 import documentRoutes from './routes/document.routes.js';
 import rfpRoutes from './routes/rfp.routes.js';
+import proposalRoutes from './routes/proposal.routes.js';
+import networkRoutes from './routes/network.routes.js';
 
 dotenv.config();
 
@@ -18,8 +20,8 @@ app.use(cors({
   origin: FRONTEND_URL,
   credentials: true
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -69,8 +71,30 @@ app.get('/api', (req, res) => {
         upload: 'POST /api/rfp/upload',
         get: 'GET /api/rfp/:id',
         reparse: 'POST /api/rfp/:id/reparse',
+        validate: 'PUT /api/rfp/:id/validate',
         download: 'GET /api/rfp/:id/download',
         delete: 'DELETE /api/rfp/:id'
+      },
+      proposals: {
+        list: 'GET /api/proposals',
+        generate: 'POST /api/proposals/generate',
+        get: 'GET /api/proposals/:id',
+        update: 'PUT /api/proposals/:id',
+        refine: 'POST /api/proposals/:id/refine',
+        status: 'PUT /api/proposals/:id/status',
+        withdraw: 'PUT /api/proposals/:id/withdraw',
+        delete: 'DELETE /api/proposals/:id',
+        exportDocx: 'GET /api/proposals/:id/export/docx',
+        exportPdf: 'GET /api/proposals/:id/export/pdf'
+      },
+      network: {
+        listConnections: 'GET /api/network/connections',
+        createConnection: 'POST /api/network/connections',
+        getConnection: 'GET /api/network/connections/:id',
+        updateConnection: 'PUT /api/network/connections/:id',
+        deleteConnection: 'DELETE /api/network/connections/:id',
+        searchByCapability: 'GET /api/network/connections/search/capabilities',
+        stats: 'GET /api/network/connections/stats'
       }
     }
   });
@@ -90,6 +114,12 @@ app.use('/api/documents', documentRoutes);
 
 // RFP routes
 app.use('/api/rfp', rfpRoutes);
+
+// Proposal routes
+app.use('/api/proposals', proposalRoutes);
+
+// Network routes
+app.use('/api/network', networkRoutes);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

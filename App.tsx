@@ -16,6 +16,7 @@ import CalendarView from './components/CalendarView';
 import { useAppContext } from './contexts/AppContext';
 import { formatProposalForDownload } from './utils/formatters';
 import { exportProposalToPdf } from './utils/pdfExporter';
+import { proposalsAPI, getAuthToken } from './services/api';
 import ToastContainer from './components/ToastContainer';
 import OnboardingTour from './components/OnboardingTour';
 import Sidebar from './components/Sidebar';
@@ -389,7 +390,22 @@ const App: React.FC = () => {
         setIsDownloadingPdf(true);
         addToast('Preparing PDF download...', 'info');
         try {
-            await exportProposalToPdf(folder);
+            // Use backend export if authenticated and folder has backend ID
+            if (getAuthToken() && folder.id) {
+                const blob = await proposalsAPI.exportPdf(folder.id);
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${folder.proposal?.projectName || folder.folderName}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                addToast('PDF downloaded successfully', 'success');
+            } else {
+                // Fallback to client-side export
+                await exportProposalToPdf(folder);
+            }
         } catch (error: any) {
             addToast(`Failed to generate PDF: ${error.message}`, 'error');
             console.error(error);

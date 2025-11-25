@@ -191,6 +191,7 @@ export interface TeamProfile {
 export interface ProfileData {
   teams: TeamProfile[];
   smsNumber: string | null;
+  companyName?: string;
 }
 
 export interface MissingResource {

@@ -369,6 +369,93 @@ export const reparseRFP = async (req: Request, res: Response) => {
 };
 
 /**
+ * Validate and update RFP parsed data
+ * PUT /api/rfp/:id/validate
+ */
+export const validateRFP = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated'
+      });
+      return;
+    }
+
+    const { id } = req.params;
+    const { validatedData } = req.body;
+
+    if (!validatedData) {
+      res.status(400).json({
+        error: 'Missing validated data',
+        message: 'Please provide validated RFP data'
+      });
+      return;
+    }
+
+    // Get user's profile
+    const { data: profile, error: profileError } = await supabase
+      .from('company_profiles')
+      .select('id')
+      .eq('user_id', req.userId)
+      .single();
+
+    if (profileError || !profile) {
+      res.status(404).json({
+        error: 'Profile not found',
+        message: 'Profile not found'
+      });
+      return;
+    }
+
+    // Check RFP exists and user has access
+    const { data: rfp, error: rfpError } = await supabase
+      .from('rfp_uploads')
+      .select('id')
+      .eq('id', id)
+      .eq('profile_id', profile.id)
+      .single();
+
+    if (rfpError || !rfp) {
+      res.status(404).json({
+        error: 'RFP not found',
+        message: 'RFP not found or access denied'
+      });
+      return;
+    }
+
+    // Update RFP with validated data
+    const { data: updatedRFP, error: updateError } = await supabase
+      .from('rfp_uploads')
+      .update({
+        extracted_data: validatedData,
+        status: 'validated'
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    res.json({
+      message: 'RFP validated successfully',
+      rfp: {
+        id: updatedRFP.id,
+        fileName: updatedRFP.file_name,
+        status: updatedRFP.status,
+        extractedData: updatedRFP.extracted_data
+      }
+    });
+  } catch (error) {
+    console.error('Validate RFP error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
  * Delete RFP
  * DELETE /api/rfp/:id
  */
