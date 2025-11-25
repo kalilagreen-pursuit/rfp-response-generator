@@ -41,8 +41,10 @@ const ProjectFolderCard: React.FC<ProjectFolderCardProps> = ({ folder, onView, o
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col text-center">
-        <button onClick={() => onView(folder)} className="w-full flex flex-col items-center text-center focus:outline-none focus:ring-2 focus:ring-red-300 rounded-md pb-3">
-            <FolderIcon className={`h-16 w-16 ${currentStageStyle.icon} mb-3 transition-colors duration-200`} />
+        <div className="w-full flex flex-col items-center text-center pb-3">
+            <button onClick={() => onView(folder)} className="focus:outline-none focus:ring-2 focus:ring-red-300 rounded-md">
+                <FolderIcon className={`h-16 w-16 ${currentStageStyle.icon} mb-3 transition-colors duration-200`} />
+            </button>
             <h3 className="font-semibold text-slate-800 truncate w-full" title={folder.folderName}>
                 {folder.folderName}
             </h3>
@@ -62,7 +64,7 @@ const ProjectFolderCard: React.FC<ProjectFolderCardProps> = ({ folder, onView, o
                     </button>
                 )}
             </div>
-        </button>
+        </div>
 
         {hasScorecard && typeof score === 'number' ? (
             <div
