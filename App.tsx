@@ -391,22 +391,10 @@ const App: React.FC = () => {
         setIsDownloadingPdf(true);
         addToast('Preparing PDF download...', 'info');
         try {
-            // Use backend export if authenticated and folder has backend ID
-            if (getAuthToken() && folder.id) {
-                const blob = await proposalsAPI.exportPdf(folder.id);
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${folder.proposal?.projectName || folder.folderName}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-                addToast('PDF downloaded successfully', 'success');
-            } else {
-                // Fallback to client-side export
-                await exportProposalToPdf(folder);
-            }
+            // For now, always use client-side export since proposals are generated locally
+            // Backend export will be enabled when full backend integration is complete
+            await exportProposalToPdf(folder);
+            addToast('PDF downloaded successfully', 'success');
         } catch (error: any) {
             addToast(`Failed to generate PDF: ${error.message}`, 'error');
             console.error(error);
