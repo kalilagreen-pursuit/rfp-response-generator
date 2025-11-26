@@ -522,129 +522,399 @@ class PdfProposalGenerator {
         this.y += 45;
     }
 
-    public generate(projectFolder: ProjectFolder) {
-        const { proposal, generatedDate } = projectFolder;
+    private addTitlePage(proposal: any, generatedDate: string) {
+        // White background title page
+        this.doc.setFont(FONT_NORMAL, 'normal');
+        this.doc.setFontSize(10);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text(COMPANY_NAME, MARGIN, 20);
+        this.doc.text(`November 2025`, PAGE_WIDTH - MARGIN, 20, { align: 'right' });
 
-        // --- CUSTOM TITLE PAGE ---
-        this.doc.setFillColor(BRAND_COLOR_PRIMARY);
-        this.doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, 'F');
-
-        // Company name at top
+        // Large "Project Proposal" title
         this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(48);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text('Project', MARGIN, 100);
+        this.doc.text('Proposal', MARGIN, 125);
+
+        // Project name in tan
+        this.doc.setFont(FONT_NORMAL, 'normal');
         this.doc.setFontSize(16);
         this.doc.setTextColor(BRAND_COLOR_ACCENT);
-        this.doc.text(COMPANY_NAME, PAGE_WIDTH / 2, 40, { align: 'center' });
-
-        // Main title
-        this.doc.setFont(FONT_BOLD, 'bold');
-        this.doc.setFontSize(32);
-        this.doc.setTextColor('#FFFFFF');
-        this.doc.text('Project Proposal', PAGE_WIDTH / 2, PAGE_HEIGHT / 2 - 30, { align: 'center' });
-
-        // Project name
-        this.doc.setFontSize(22);
-        this.doc.setTextColor(BRAND_COLOR_ACCENT);
-        const projectNameLines = this.doc.splitTextToSize(proposal.projectName, CONTENT_WIDTH - 20);
+        const projectNameLines = this.doc.splitTextToSize(proposal.projectName, CONTENT_WIDTH);
         projectNameLines.forEach((line: string, idx: number) => {
-            this.doc.text(line, PAGE_WIDTH / 2, PAGE_HEIGHT / 2 - 5 + (idx * 10), { align: 'center' });
+            this.doc.text(line, MARGIN, 165 + (idx * 10));
         });
 
-        // Prepared for
+        // Footer bar
+        this.doc.setFillColor(BRAND_COLOR_PRIMARY);
+        this.doc.rect(0, PAGE_HEIGHT - 35, PAGE_WIDTH, 35, 'F');
+
         this.doc.setFont(FONT_NORMAL, 'normal');
+        this.doc.setFontSize(10);
+        this.doc.setTextColor('#FFFFFF');
+        this.doc.text('Prepared by:', MARGIN, PAGE_HEIGHT - 20);
+
+        this.doc.setFont(FONT_BOLD, 'bold');
         this.doc.setFontSize(14);
-        this.doc.setTextColor('#FFFFFF');
-        this.doc.text(`Prepared for: ${proposal.contactPerson || 'Valued Client'}`, PAGE_WIDTH / 2, PAGE_HEIGHT / 2 + 40, { align: 'center' });
-        this.doc.text(`Date: ${new Date(generatedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`, PAGE_WIDTH / 2, PAGE_HEIGHT / 2 + 50, { align: 'center' });
+        this.doc.text(COMPANY_NAME, MARGIN, PAGE_HEIGHT - 12);
+    }
 
-        // Footer
-        this.doc.setFontSize(11);
-        this.doc.setTextColor(BRAND_COLOR_ACCENT);
-        this.doc.text(`Prepared by ${COMPANY_NAME}`, PAGE_WIDTH / 2, PAGE_HEIGHT - 25, { align: 'center' });
-        this.doc.setFontSize(9);
-        this.doc.setTextColor('#FFFFFF');
-        this.doc.text('Confidential & Proprietary', PAGE_WIDTH / 2, PAGE_HEIGHT - 15, { align: 'center' });
+    private addTOCPage() {
+        // Header
+        this.doc.setFont(FONT_NORMAL, 'normal');
+        this.doc.setFontSize(10);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text(COMPANY_NAME, MARGIN, 20);
+        this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
 
-        // --- TABLE OF CONTENTS ---
-        this.doc.addPage();
-        this.pageNumber++;
-        this.y = MARGIN + 10;
+        // Title
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(32);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text('Table of Contents', MARGIN, 60);
 
-        const sections = [
-            { title: 'Executive Summary', page: 3 },
-            { title: 'Technical Approach', page: 3 },
-            { title: 'Resource Requirements', page: 4 },
-            { title: 'Project Timeline', page: 4 },
-            { title: 'Investment Estimate', page: 5 },
-            { title: 'Value Proposition & ROI', page: 5 }
+        // TOC Items with numbered sections
+        let yPos = 100;
+        const tocItems = [
+            { num: '01', title: 'Executive Summary' },
+            { num: '02', title: 'Value Proposition' },
+            { num: '03', title: 'Technical Approach' },
+            { num: '04', title: 'Project Timeline' },
+            { num: '05', title: 'Investment Estimate' },
+            { num: '06', title: 'Resources' },
+            { num: '07', title: 'Questions for Client' }
         ];
 
-        if (proposal.questionsForClient && proposal.questionsForClient.length > 0) {
-            sections.push({ title: 'Clarifying Questions', page: 6 });
-        }
+        tocItems.forEach(item => {
+            // Number in tan
+            this.doc.setFont(FONT_BOLD, 'bold');
+            this.doc.setFontSize(12);
+            this.doc.setTextColor(BRAND_COLOR_ACCENT);
+            this.doc.text(item.num, MARGIN, yPos);
 
-        this.addTableOfContents(sections);
+            // Title in dark
+            this.doc.setFont(FONT_NORMAL, 'normal');
+            this.doc.setTextColor(TEXT_COLOR_DARK);
+            this.doc.text(item.title, MARGIN + 15, yPos);
 
-        // --- CONTENT PAGES ---
-        this.doc.addPage();
-        this.pageNumber++;
-        this.y = MARGIN;
-        this.addPageHeader();
+            // Horizontal line
+            this.doc.setDrawColor(200, 200, 200);
+            this.doc.setLineWidth(0.3);
+            this.doc.line(MARGIN, yPos + 5, PAGE_WIDTH - MARGIN, yPos + 5);
 
-        this.addSectionTitle('Executive Summary');
-        this.addParagraph(proposal.executiveSummary);
+            yPos += 20;
+        });
+    }
 
-        this.addSectionTitle('Technical Approach');
-        this.addParagraph(proposal.technicalApproach);
+    private addContentPageWithNumber(sectionNum: string, sectionTitle: string, content: string) {
+        // Header
+        this.doc.setFont(FONT_NORMAL, 'normal');
+        this.doc.setFontSize(10);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text(COMPANY_NAME, MARGIN, 20);
+        this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
 
-        this.addSectionTitle('Resource Requirements');
-        this.addResourcesTable(proposal.resources);
+        // Section number in large tan
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(28);
+        this.doc.setTextColor(BRAND_COLOR_ACCENT);
+        this.doc.text(sectionNum, MARGIN, 60);
 
-        this.addSectionTitle('Project Timeline');
-        this.addParagraph(proposal.projectTimeline.split(/(?=Phase \d+:)/g).filter(p => p.trim()).join('\n'));
+        // Section title in large dark
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(28);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text(sectionTitle, MARGIN, 75);
 
-        this.addSectionTitle('Investment Estimate');
-        this.addInvestmentEstimateBox(proposal);
+        // Content
+        this.doc.setFont(FONT_NORMAL, 'normal');
+        this.doc.setFontSize(11);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        const lines = this.doc.splitTextToSize(content, CONTENT_WIDTH);
+        this.doc.text(lines, MARGIN, 95);
+    }
 
-        this.addSectionTitle('Value Proposition & ROI');
-        this.addParagraph(proposal.valueProposition);
+    private addInvestmentPage(proposal: any) {
+        // Header
+        this.doc.setFont(FONT_NORMAL, 'normal');
+        this.doc.setFontSize(10);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text(COMPANY_NAME, MARGIN, 20);
+        this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
 
-        if (proposal.questionsForClient && proposal.questionsForClient.length > 0) {
-            this.addSectionTitle('Clarifying Questions');
-            this.addBulletList(proposal.questionsForClient);
-        }
-
-        // --- CLOSING PAGE ---
-        this.doc.addPage();
-        this.pageNumber++;
-        this.doc.setFillColor(BRAND_COLOR_PRIMARY);
-        this.doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, 'F');
+        // Section number and title
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(28);
+        this.doc.setTextColor(BRAND_COLOR_ACCENT);
+        this.doc.text('05', MARGIN, 60);
 
         this.doc.setFont(FONT_BOLD, 'bold');
         this.doc.setFontSize(28);
-        this.doc.setTextColor('#FFFFFF');
-        this.doc.text('Thank You', PAGE_WIDTH / 2, PAGE_HEIGHT / 2 - 20, { align: 'center' });
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text('Investment Estimate', MARGIN, 75);
+
+        // Large tan box with investment range
+        this.doc.setFillColor(BRAND_COLOR_ACCENT);
+        this.doc.rect(MARGIN, 100, CONTENT_WIDTH, 50, 'F');
 
         this.doc.setFont(FONT_NORMAL, 'normal');
-        this.doc.setFontSize(14);
-        this.doc.setTextColor(BRAND_COLOR_ACCENT);
-        this.doc.text('We look forward to partnering with you', PAGE_WIDTH / 2, PAGE_HEIGHT / 2, { align: 'center' });
-
         this.doc.setFontSize(12);
         this.doc.setTextColor('#FFFFFF');
-        this.doc.text(COMPANY_NAME, PAGE_WIDTH / 2, PAGE_HEIGHT / 2 + 30, { align: 'center' });
+        this.doc.text('Total Investment Range', MARGIN + 10, 115);
 
-        // --- FINAL PAGE NUMBERING ---
-        const totalPages = this.doc.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-            this.doc.setPage(i);
-            if (i > 1 && i < totalPages) { // Skip title and closing pages
-                this.doc.setFont(FONT_NORMAL, 'normal');
-                this.doc.setFontSize(9);
-                this.doc.setTextColor(TEXT_COLOR_LIGHT);
-                this.doc.text(`${COMPANY_NAME} | Confidential`, MARGIN, PAGE_HEIGHT - 10);
-                this.doc.text(`Page ${i - 1} of ${totalPages - 2}`, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 10, { align: 'right' });
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(24);
+        this.doc.setTextColor('#FFFFFF');
+        const est = proposal.investmentEstimate;
+        this.doc.text(`${formatCurrency(est.low)} - ${formatCurrency(est.high)}`, MARGIN + 10, 135);
+
+        // Description text
+        let yPos = 180;
+        this.doc.setFont(FONT_NORMAL, 'normal');
+        this.doc.setFontSize(11);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        const descText = 'This investment estimate reflects a comprehensive analysis of project requirements, resource allocation, and timeline considerations. The range accounts for varying levels of complexity and potential scope adjustments during implementation.';
+        const descLines = this.doc.splitTextToSize(descText, CONTENT_WIDTH);
+        this.doc.text(descLines, MARGIN, yPos);
+        yPos += descLines.length * 6 + 15;
+
+        // Cost Breakdown heading
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(16);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text('Cost Breakdown', MARGIN, yPos);
+        yPos += 15;
+
+        // Calculate totals from resources
+        const resources = proposal.resources;
+        let devTeamLow = 0, devTeamHigh = 0;
+        let leadershipLow = 0, leadershipHigh = 0;
+        let qaLow = 0, qaHigh = 0;
+        let trainingLow = 0, trainingHigh = 0;
+
+        resources.forEach((res: Resource) => {
+            const lowCost = res.hours * res.lowRate;
+            const highCost = res.hours * res.highRate;
+
+            if (res.role.includes('Developer') || res.role.includes('Designer') || res.role.includes('DevOps')) {
+                devTeamLow += lowCost;
+                devTeamHigh += highCost;
+            } else if (res.role.includes('Manager') || res.role.includes('Architect')) {
+                leadershipLow += lowCost;
+                leadershipHigh += highCost;
+            } else if (res.role.includes('QA') || res.role.includes('Security')) {
+                qaLow += lowCost;
+                qaHigh += highCost;
+            } else if (res.role.includes('Writer') || res.role.includes('Trainer')) {
+                trainingLow += lowCost;
+                trainingHigh += highCost;
             }
+        });
+
+        const breakdownItems = [
+            { label: 'Development Team:', range: `${formatCurrency(devTeamLow)} - ${formatCurrency(devTeamHigh)}` },
+            { label: 'Project Leadership & Architecture:', range: `${formatCurrency(leadershipLow)} - ${formatCurrency(leadershipHigh)}` },
+            { label: 'Quality Assurance & Compliance:', range: `${formatCurrency(qaLow)} - ${formatCurrency(qaHigh)}` },
+            { label: 'Training & Documentation:', range: `${formatCurrency(trainingLow)} - ${formatCurrency(trainingHigh)}` },
+            { label: 'Third-Party Software & Infrastructure:', range: '$30,000 - $70,000' },
+            { label: 'Contingency & Project Overhead:', range: `$0 - ${formatCurrency(est.high - (devTeamHigh + leadershipHigh + qaHigh + trainingHigh + 70000))}` }
+        ];
+
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(11);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+
+        breakdownItems.forEach(item => {
+            this.doc.setFont(FONT_BOLD, 'bold');
+            this.doc.text(item.label, MARGIN, yPos);
+
+            this.doc.setFont(FONT_NORMAL, 'normal');
+            this.doc.setTextColor(BRAND_COLOR_ACCENT);
+            this.doc.text(item.range, MARGIN + 85, yPos);
+
+            yPos += 10;
+            this.doc.setTextColor(TEXT_COLOR_DARK);
+        });
+    }
+
+    private addResourcesPage(proposal: any) {
+        // Header
+        this.doc.setFont(FONT_NORMAL, 'normal');
+        this.doc.setFontSize(10);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text(COMPANY_NAME, MARGIN, 20);
+        this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
+
+        // Section number and title
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(28);
+        this.doc.setTextColor(BRAND_COLOR_ACCENT);
+        this.doc.text('06', MARGIN, 60);
+
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(28);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text('Resources', MARGIN, 75);
+
+        // Intro text
+        this.doc.setFont(FONT_NORMAL, 'normal');
+        this.doc.setFontSize(11);
+        this.doc.text('Our proposed team structure leverages experienced professionals to deliver exceptional results:', MARGIN, 95);
+
+        // Resources table
+        const head = [['Role', 'Hours', 'Rate Range (Low)', 'Rate Range (High)']];
+        const body = proposal.resources.map((res: Resource) => [
+            res.role,
+            String(res.hours),
+            `${formatCurrency(res.lowRate)}/hr`,
+            `${formatCurrency(res.highRate)}/hr`
+        ]);
+
+        import('jspdf-autotable').then(({ default: autoTable }) => {
+            autoTable(this.doc, {
+                head,
+                body,
+                startY: 110,
+                theme: 'plain',
+                headStyles: {
+                    fillColor: BRAND_COLOR_PRIMARY,
+                    textColor: '#FFFFFF',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 3
+                },
+                styles: {
+                    fontSize: 9,
+                    cellPadding: 3,
+                    lineColor: 200,
+                    lineWidth: 0.1
+                },
+                columnStyles: {
+                    0: { cellWidth: 70 },
+                    1: { halign: 'center', cellWidth: 30 },
+                    2: { halign: 'right', cellWidth: 40 },
+                    3: { halign: 'right', cellWidth: 40 }
+                }
+            });
+
+            // Role Responsibilities section
+            let yPos = (this.doc as any).lastAutoTable.finalY + 15;
+
+            this.doc.setPage(this.pageNumber);
+            this.doc.setFont(FONT_BOLD, 'bold');
+            this.doc.setFontSize(16);
+            this.doc.setTextColor(TEXT_COLOR_DARK);
+            this.doc.text('Role Responsibilities', MARGIN, yPos);
+            yPos += 15;
+
+            this.doc.setFont(FONT_NORMAL, 'normal');
+            this.doc.setFontSize(10);
+
+            const responsibilities = [
+                { role: 'Project Manager', desc: 'Oversees all project phases from discovery through deployment, manages stakeholder communication with NYC DOC, ensures adherence to timelines and budget, coordinates cross-functional team efforts, and maintains compliance with all regulatory requirements including CJIS and NYC Cyber Command standards.' },
+                { role: 'Solution Architect', desc: 'Designs the overall system architecture ensuring scalability, security, and integration capabilities with JMS, OMS, and NYS data exchanges. Establishes technical' }
+            ];
+
+            responsibilities.forEach(item => {
+                if (yPos > PAGE_HEIGHT - 40) {
+                    this.doc.addPage();
+                    this.pageNumber++;
+                    yPos = MARGIN + 20;
+                }
+
+                this.doc.setFont(FONT_BOLD, 'bold');
+                this.doc.text(`${item.role} –`, MARGIN, yPos);
+
+                this.doc.setFont(FONT_NORMAL, 'normal');
+                const descLines = this.doc.splitTextToSize(item.desc, CONTENT_WIDTH - 50);
+                this.doc.text(descLines, MARGIN + 50, yPos);
+                yPos += descLines.length * 5 + 8;
+            });
+        });
+    }
+
+    private addClosingPage() {
+        // Header
+        this.doc.setFont(FONT_NORMAL, 'normal');
+        this.doc.setFontSize(10);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text(COMPANY_NAME, MARGIN, 20);
+        this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
+
+        // Large "Let's Work Together" text
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(48);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text("Let's Work", MARGIN, 120);
+        this.doc.text('Together', MARGIN, 150);
+
+        // Footer bar
+        this.doc.setFillColor(BRAND_COLOR_PRIMARY);
+        this.doc.rect(0, PAGE_HEIGHT - 35, PAGE_WIDTH, 35, 'F');
+
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(14);
+        this.doc.setTextColor('#FFFFFF');
+        this.doc.text('Contact Us', MARGIN, PAGE_HEIGHT - 20);
+
+        this.doc.setFont(FONT_NORMAL, 'normal');
+        this.doc.setFontSize(10);
+        this.doc.text(COMPANY_NAME, MARGIN, PAGE_HEIGHT - 10);
+    }
+
+    public generate(projectFolder: ProjectFolder) {
+        const { proposal, generatedDate } = projectFolder;
+
+        // Page 1: Title Page
+        this.addTitlePage(proposal, generatedDate);
+
+        // Page 2: Table of Contents
+        this.doc.addPage();
+        this.pageNumber++;
+        this.addTOCPage();
+
+        // Page 3: Executive Summary
+        this.doc.addPage();
+        this.pageNumber++;
+        this.addContentPageWithNumber('01', 'Executive Summary', proposal.executiveSummary);
+
+        // Page 4: Value Proposition
+        this.doc.addPage();
+        this.pageNumber++;
+        this.addContentPageWithNumber('02', 'Value Proposition', proposal.valueProposition);
+
+        // Page 5: Technical Approach
+        this.doc.addPage();
+        this.pageNumber++;
+        this.addContentPageWithNumber('03', 'Technical Approach', proposal.technicalApproach);
+
+        // Page 6: Project Timeline
+        this.doc.addPage();
+        this.pageNumber++;
+        this.addContentPageWithNumber('04', 'Project Timeline', proposal.projectTimeline);
+
+        // Page 7: Investment Estimate
+        this.doc.addPage();
+        this.pageNumber++;
+        this.addInvestmentPage(proposal);
+
+        // Page 8-9: Resources
+        this.doc.addPage();
+        this.pageNumber++;
+        this.addResourcesPage(proposal);
+
+        // Questions for Client
+        if (proposal.questionsForClient && proposal.questionsForClient.length > 0) {
+            this.doc.addPage();
+            this.pageNumber++;
+            this.addContentPageWithNumber('07', 'Questions for Client', '• ' + proposal.questionsForClient.join('\n\n• '));
         }
+
+        // Final Page: Closing
+        this.doc.addPage();
+        this.pageNumber++;
+        this.addClosingPage();
 
         this.doc.save(`Proposal - ${proposal.projectName.replace(/\s/g, '_')}.pdf`);
     }
