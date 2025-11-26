@@ -665,6 +665,78 @@ class PdfProposalGenerator {
         });
     }
 
+    private addTimelinePage(projectTimeline: string) {
+        // Header
+        this.doc.setFont(FONT_NORMAL, 'normal');
+        this.doc.setFontSize(10);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text(this.companyName, MARGIN, 20);
+        this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
+
+        // Section number in large tan
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(28);
+        this.doc.setTextColor(BRAND_COLOR_ACCENT);
+        this.doc.text('04', MARGIN, 60);
+
+        // Section title in large dark
+        this.doc.setFont(FONT_BOLD, 'bold');
+        this.doc.setFontSize(28);
+        this.doc.setTextColor(TEXT_COLOR_DARK);
+        this.doc.text('Project Timeline', MARGIN, 75);
+
+        // Parse and display phases
+        let yPos = 95;
+
+        // Split by line breaks to get individual phases
+        const phases = projectTimeline.split(/\n+/).filter(line => line.trim());
+
+        phases.forEach((phase) => {
+            // Check if we need a new page
+            if (yPos > PAGE_HEIGHT - 40) {
+                this.doc.addPage();
+                this.pageNumber++;
+                yPos = MARGIN + 20;
+
+                // Add header on new page
+                this.doc.setFont(FONT_NORMAL, 'normal');
+                this.doc.setFontSize(10);
+                this.doc.setTextColor(TEXT_COLOR_DARK);
+                this.doc.text(this.companyName, MARGIN, 20);
+                this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
+            }
+
+            // Check if this line starts with "Phase"
+            if (phase.trim().match(/^Phase\s+\d+:/i)) {
+                const [phaseHeader, ...rest] = phase.split(':');
+                const phaseDetails = rest.join(':').trim();
+
+                // Phase number/name in bold tan
+                this.doc.setFont(FONT_BOLD, 'bold');
+                this.doc.setFontSize(12);
+                this.doc.setTextColor(BRAND_COLOR_ACCENT);
+                this.doc.text(phaseHeader.trim() + ':', MARGIN, yPos);
+
+                // Phase details
+                this.doc.setFont(FONT_NORMAL, 'normal');
+                this.doc.setFontSize(11);
+                this.doc.setTextColor(TEXT_COLOR_DARK);
+                const detailLines = this.doc.splitTextToSize(phaseDetails, CONTENT_WIDTH - 30);
+                this.doc.text(detailLines, MARGIN + 5, yPos + 7);
+
+                yPos += Math.max(detailLines.length * 6, 10) + 12;
+            } else {
+                // Regular text (fallback for non-phase lines)
+                this.doc.setFont(FONT_NORMAL, 'normal');
+                this.doc.setFontSize(11);
+                this.doc.setTextColor(TEXT_COLOR_DARK);
+                const lines = this.doc.splitTextToSize(phase.trim(), CONTENT_WIDTH);
+                this.doc.text(lines, MARGIN, yPos);
+                yPos += lines.length * 6 + 8;
+            }
+        });
+    }
+
     private addInvestmentPage(proposal: any) {
         // Header
         this.doc.setFont(FONT_NORMAL, 'normal');
@@ -932,7 +1004,7 @@ class PdfProposalGenerator {
         // Page 6: Project Timeline
         this.doc.addPage();
         this.pageNumber++;
-        this.addContentPageWithNumber('04', 'Project Timeline', proposal.projectTimeline);
+        this.addTimelinePage(proposal.projectTimeline);
 
         // Page 7: Investment Estimate
         this.doc.addPage();

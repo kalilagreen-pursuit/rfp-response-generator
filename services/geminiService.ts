@@ -86,7 +86,7 @@ const proposalSchema = {
         },
         projectTimeline: {
             type: Type.STRING,
-            description: "A brief, high-level project timeline, outlining key phases and their estimated durations in weeks. (e.g., Phase 1: Foundation (4-6 weeks), Phase 2: AI Integration (6-8 weeks)...)"
+            description: "A brief, high-level project timeline, outlining key phases and their estimated durations in weeks. Format each phase on a new line starting with 'Phase N:' followed by the phase name and duration. Example format:\nPhase 1: Discovery & Requirements (2-3 weeks)\nPhase 2: Design & Architecture (3-4 weeks)\nPhase 3: Development & Integration (8-10 weeks)"
         },
         investmentEstimate: {
             type: Type.OBJECT,
@@ -266,7 +266,7 @@ const proposalChatSchema = {
         },
         projectTimeline: {
             type: Type.STRING,
-            description: "A brief, high-level project timeline, outlining key phases and their estimated durations in weeks. (e.g., Phase 1: Foundation (4-6 weeks), Phase 2: AI Integration (6-8 weeks)...)"
+            description: "A brief, high-level project timeline, outlining key phases and their estimated durations in weeks. Format each phase on a new line starting with 'Phase N:' followed by the phase name and duration. Example format:\nPhase 1: Discovery & Requirements (2-3 weeks)\nPhase 2: Design & Architecture (3-4 weeks)\nPhase 3: Development & Integration (8-10 weeks)"
         },
         investmentEstimate: {
             type: Type.OBJECT,
