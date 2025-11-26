@@ -18,14 +18,13 @@ const GREEN_TEXT = '#15803d';
 const AMBER_TEXT = '#b45309';
 const FONT_BOLD = 'helvetica-bold';
 const FONT_NORMAL = 'helvetica';
-const COMPANY_NAME = 'Liceria Corporate';
 
-const addSlideTemplate = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number) => {
+const addSlideTemplate = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number, companyName: string = 'Your Company') => {
     // Footer
     doc.setFont(FONT_NORMAL, 'normal');
     doc.setFontSize(9);
     doc.setTextColor(TEXT_COLOR_LIGHT);
-    doc.text(`${COMPANY_NAME} | Confidential`, MARGIN, PAGE_HEIGHT - 10);
+    doc.text(`${companyName} | Confidential`, MARGIN, PAGE_HEIGHT - 10);
     doc.text(`Page ${pageNumber} of ${totalPages}`, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 10, { align: 'right' });
 
     // Header
@@ -59,8 +58,8 @@ const renderTitleSlide = (doc: jsPDF, slide: Slide) => {
     }
 };
 
-const renderSummarySlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number) => {
-    addSlideTemplate(doc, slide, pageNumber, totalPages);
+const renderSummarySlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number, companyName: string = 'Your Company') => {
+    addSlideTemplate(doc, slide, pageNumber, totalPages, companyName);
 
     if (slide.points) {
         let yPos = MARGIN + 40;
@@ -81,8 +80,8 @@ const renderSummarySlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalP
     }
 };
 
-const renderSolutionSlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number) => {
-    addSlideTemplate(doc, slide, pageNumber, totalPages);
+const renderSolutionSlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number, companyName: string = 'Your Company') => {
+    addSlideTemplate(doc, slide, pageNumber, totalPages, companyName);
 
     const halfWidth = CONTENT_WIDTH / 2 - 10;
     let yPos = MARGIN + 40;
@@ -122,8 +121,8 @@ const renderSolutionSlide = (doc: jsPDF, slide: Slide, pageNumber: number, total
     doc.text(diagLines, rightColX, MARGIN + 50);
 };
 
-const renderInvestmentSlide = (doc: jsPDF, slide: Slide, folder: ProjectFolder, pageNumber: number, totalPages: number) => {
-    addSlideTemplate(doc, slide, pageNumber, totalPages);
+const renderInvestmentSlide = (doc: jsPDF, slide: Slide, folder: ProjectFolder, pageNumber: number, totalPages: number, companyName: string = 'Your Company') => {
+    addSlideTemplate(doc, slide, pageNumber, totalPages, companyName);
     
     const est = folder.proposal.investmentEstimate;
     let yPos = MARGIN + 45;
@@ -164,8 +163,8 @@ const renderInvestmentSlide = (doc: jsPDF, slide: Slide, folder: ProjectFolder, 
     doc.text(formatCurrency(est.high), rightColX + 5, yPos + 20);
 };
 
-const renderConfidenceSlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number) => {
-    addSlideTemplate(doc, slide, pageNumber, totalPages);
+const renderConfidenceSlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number, companyName: string = 'Your Company') => {
+    addSlideTemplate(doc, slide, pageNumber, totalPages, companyName);
 
     let yPos = MARGIN + 60;
     doc.setFont(FONT_NORMAL, 'normal');
@@ -191,8 +190,8 @@ const renderConfidenceSlide = (doc: jsPDF, slide: Slide, pageNumber: number, tot
     doc.text(quoteLines, PAGE_WIDTH / 2, yPos, { align: 'center' });
 };
 
-const renderNextStepsSlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number) => {
-    addSlideTemplate(doc, slide, pageNumber, totalPages);
+const renderNextStepsSlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number, companyName: string = 'Your Company') => {
+    addSlideTemplate(doc, slide, pageNumber, totalPages, companyName);
 
     if (slide.steps) {
         let yPos = MARGIN + 45;
@@ -216,8 +215,8 @@ const renderNextStepsSlide = (doc: jsPDF, slide: Slide, pageNumber: number, tota
     }
 };
 
-const renderKeyDifferentiatorsSlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number) => {
-    addSlideTemplate(doc, slide, pageNumber, totalPages);
+const renderKeyDifferentiatorsSlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number, companyName: string = 'Your Company') => {
+    addSlideTemplate(doc, slide, pageNumber, totalPages, companyName);
 
     if (slide.points && slide.points.length > 0) {
         const numPoints = slide.points.length;
@@ -244,8 +243,8 @@ const renderKeyDifferentiatorsSlide = (doc: jsPDF, slide: Slide, pageNumber: num
     }
 };
 
-const renderClientTestimonialsSlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number) => {
-    addSlideTemplate(doc, slide, pageNumber, totalPages);
+const renderClientTestimonialsSlide = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number, companyName: string = 'Your Company') => {
+    addSlideTemplate(doc, slide, pageNumber, totalPages, companyName);
 
     const yPos = PAGE_HEIGHT / 2 - 20;
 
@@ -316,7 +315,7 @@ export const exportSlideshowToPdf = async (projectFolder: ProjectFolder) => {
                 renderClientTestimonialsSlide(doc, slide, pageNumber, totalPages);
                 break;
             default:
-                addSlideTemplate(doc, slide, pageNumber, totalPages);
+                addSlideTemplate(doc, slide, pageNumber, totalPages, 'Your Company');
                 doc.text('Unsupported slide type.', MARGIN, MARGIN + 40);
                 break;
         }
@@ -331,11 +330,13 @@ class PdfProposalGenerator {
     private doc: jsPDF;
     private y: number;
     private pageNumber: number;
+    private companyName: string;
 
-    constructor() {
+    constructor(companyName: string = 'Your Company') {
         this.doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         this.y = MARGIN;
         this.pageNumber = 1;
+        this.companyName = companyName;
     }
 
     private checkPageBreak(neededSpace: number) {
@@ -352,7 +353,7 @@ class PdfProposalGenerator {
         this.doc.setFont(FONT_NORMAL, 'normal');
         this.doc.setFontSize(9);
         this.doc.setTextColor(TEXT_COLOR_LIGHT);
-        this.doc.text(`${COMPANY_NAME} | Project Proposal`, MARGIN, MARGIN - 5);
+        this.doc.text(`${this.companyName} | Project Proposal`, MARGIN, MARGIN - 5);
         this.doc.setDrawColor(BRAND_COLOR_ACCENT);
         this.doc.setLineWidth(0.3);
         this.doc.line(MARGIN, MARGIN - 2, PAGE_WIDTH - MARGIN, MARGIN - 2);
@@ -362,7 +363,7 @@ class PdfProposalGenerator {
         this.doc.setFont(FONT_NORMAL, 'normal');
         this.doc.setFontSize(9);
         this.doc.setTextColor(TEXT_COLOR_LIGHT);
-        this.doc.text(`${COMPANY_NAME} | Confidential`, MARGIN, PAGE_HEIGHT - 10);
+        this.doc.text(`${this.companyName} | Confidential`, MARGIN, PAGE_HEIGHT - 10);
         // Page number is added at the end once total is known
     }
 
@@ -527,7 +528,7 @@ class PdfProposalGenerator {
         this.doc.setFont(FONT_NORMAL, 'normal');
         this.doc.setFontSize(10);
         this.doc.setTextColor(TEXT_COLOR_DARK);
-        this.doc.text(COMPANY_NAME, MARGIN, 20);
+        this.doc.text(this.companyName, MARGIN, 20);
         this.doc.text(`November 2025`, PAGE_WIDTH - MARGIN, 20, { align: 'right' });
 
         // Large "Project Proposal" title
@@ -557,7 +558,7 @@ class PdfProposalGenerator {
 
         this.doc.setFont(FONT_BOLD, 'bold');
         this.doc.setFontSize(14);
-        this.doc.text(COMPANY_NAME, MARGIN, PAGE_HEIGHT - 12);
+        this.doc.text(this.companyName, MARGIN, PAGE_HEIGHT - 12);
     }
 
     private addTOCPage() {
@@ -565,7 +566,7 @@ class PdfProposalGenerator {
         this.doc.setFont(FONT_NORMAL, 'normal');
         this.doc.setFontSize(10);
         this.doc.setTextColor(TEXT_COLOR_DARK);
-        this.doc.text(COMPANY_NAME, MARGIN, 20);
+        this.doc.text(this.companyName, MARGIN, 20);
         this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
 
         // Title
@@ -612,7 +613,7 @@ class PdfProposalGenerator {
         this.doc.setFont(FONT_NORMAL, 'normal');
         this.doc.setFontSize(10);
         this.doc.setTextColor(TEXT_COLOR_DARK);
-        this.doc.text(COMPANY_NAME, MARGIN, 20);
+        this.doc.text(this.companyName, MARGIN, 20);
         this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
 
         // Section number in large tan
@@ -640,7 +641,7 @@ class PdfProposalGenerator {
         this.doc.setFont(FONT_NORMAL, 'normal');
         this.doc.setFontSize(10);
         this.doc.setTextColor(TEXT_COLOR_DARK);
-        this.doc.text(COMPANY_NAME, MARGIN, 20);
+        this.doc.text(this.companyName, MARGIN, 20);
         this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
 
         // Section number and title
@@ -743,7 +744,7 @@ class PdfProposalGenerator {
         this.doc.setFont(FONT_NORMAL, 'normal');
         this.doc.setFontSize(10);
         this.doc.setTextColor(TEXT_COLOR_DARK);
-        this.doc.text(COMPANY_NAME, MARGIN, 20);
+        this.doc.text(this.companyName, MARGIN, 20);
         this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
 
         // Section number and title
@@ -839,7 +840,7 @@ class PdfProposalGenerator {
         this.doc.setFont(FONT_NORMAL, 'normal');
         this.doc.setFontSize(10);
         this.doc.setTextColor(TEXT_COLOR_DARK);
-        this.doc.text(COMPANY_NAME, MARGIN, 20);
+        this.doc.text(this.companyName, MARGIN, 20);
         this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
 
         // Large "Let's Work Together" text
@@ -860,7 +861,7 @@ class PdfProposalGenerator {
 
         this.doc.setFont(FONT_NORMAL, 'normal');
         this.doc.setFontSize(10);
-        this.doc.text(COMPANY_NAME, MARGIN, PAGE_HEIGHT - 10);
+        this.doc.text(this.companyName, MARGIN, PAGE_HEIGHT - 10);
     }
 
     public generate(projectFolder: ProjectFolder) {
@@ -920,13 +921,13 @@ class PdfProposalGenerator {
     }
 }
 
-export const exportProposalToPdf = async (projectFolder: ProjectFolder) => {
-    const generator = new PdfProposalGenerator();
+export const exportProposalToPdf = async (projectFolder: ProjectFolder, companyName?: string) => {
+    const generator = new PdfProposalGenerator(companyName);
     generator.generate(projectFolder);
 };
 
 
-export const exportTimelineToPdf = async (projectFolder: ProjectFolder) => {
+export const exportTimelineToPdf = async (projectFolder: ProjectFolder, companyName: string = 'Your Company') => {
     const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -986,14 +987,14 @@ export const exportTimelineToPdf = async (projectFolder: ProjectFolder) => {
         doc.setPage(i);
         doc.setFontSize(9);
         doc.setTextColor(TEXT_COLOR_LIGHT);
-        doc.text(`${COMPANY_NAME} | Project Timeline`, margin, pageH - 10);
+        doc.text(`${companyName} | Project Timeline`, margin, pageH - 10);
         doc.text(`Page ${i} of ${totalPages}`, pageW - margin, pageH - 10, { align: 'right' });
     }
 
     doc.save(`Timeline - ${projectFolder.proposal.projectName.replace(/\s/g, '_')}.pdf`);
 };
 
-export const exportWhitepaperToPdf = async (whitepaper: Whitepaper) => {
+export const exportWhitepaperToPdf = async (whitepaper: Whitepaper, companyName: string = 'Your Company') => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     let y = MARGIN;
 
@@ -1016,7 +1017,7 @@ export const exportWhitepaperToPdf = async (whitepaper: Whitepaper) => {
     doc.setFont(FONT_NORMAL, 'normal');
     doc.setFontSize(12);
     doc.setTextColor(BRAND_COLOR_ACCENT);
-    doc.text(`A Report by ${COMPANY_NAME}`, PAGE_WIDTH / 2, PAGE_HEIGHT / 2 + 5, { align: 'center' });
+    doc.text(`A Report by ${companyName}`, PAGE_WIDTH / 2, PAGE_HEIGHT / 2 + 5, { align: 'center' });
     doc.setTextColor('#FFFFFF');
     doc.text(`Date: ${new Date().toLocaleDateString()}`, PAGE_WIDTH / 2, PAGE_HEIGHT / 2 + 12, { align: 'center' });
 

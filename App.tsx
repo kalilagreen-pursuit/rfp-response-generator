@@ -393,7 +393,7 @@ const App: React.FC = () => {
         try {
             // For now, always use client-side export since proposals are generated locally
             // Backend export will be enabled when full backend integration is complete
-            await exportProposalToPdf(folder);
+            await exportProposalToPdf(folder, profileData.companyName || 'Your Company');
             addToast('PDF downloaded successfully', 'success');
         } catch (error: any) {
             addToast(`Failed to generate PDF: ${error.message}`, 'error');
@@ -401,7 +401,7 @@ const App: React.FC = () => {
         } finally {
             setIsDownloadingPdf(false);
         }
-    }, [addToast]);
+    }, [addToast, profileData.companyName]);
 
     const handleSalesStageChange = (id: string, stage: SalesStage) => {
         const folder = projectFolders.find(f => f.id === id);
