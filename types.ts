@@ -20,6 +20,7 @@ export interface Resource {
   hours: number;
   lowRate: number;
   highRate: number;
+  description?: string;
 }
 
 export interface TeamMember {

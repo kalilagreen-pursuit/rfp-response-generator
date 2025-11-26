@@ -628,12 +628,41 @@ class PdfProposalGenerator {
         this.doc.setTextColor(TEXT_COLOR_DARK);
         this.doc.text(sectionTitle, MARGIN, 75);
 
-        // Content
+        // Content - handle multiple paragraphs
         this.doc.setFont(FONT_NORMAL, 'normal');
         this.doc.setFontSize(11);
         this.doc.setTextColor(TEXT_COLOR_DARK);
-        const lines = this.doc.splitTextToSize(content, CONTENT_WIDTH);
-        this.doc.text(lines, MARGIN, 95);
+
+        // Split content into paragraphs (by double line breaks)
+        const paragraphs = content.split(/\n\n+/);
+        let yPos = 95;
+
+        paragraphs.forEach((paragraph) => {
+            if (paragraph.trim()) {
+                const lines = this.doc.splitTextToSize(paragraph.trim(), CONTENT_WIDTH);
+
+                // Check if we need a new page
+                if (yPos + lines.length * 6 > PAGE_HEIGHT - 30) {
+                    this.doc.addPage();
+                    this.pageNumber++;
+                    yPos = MARGIN + 20;
+
+                    // Add header on new page
+                    this.doc.setFont(FONT_NORMAL, 'normal');
+                    this.doc.setFontSize(10);
+                    this.doc.setTextColor(TEXT_COLOR_DARK);
+                    this.doc.text(this.companyName, MARGIN, 20);
+                    this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
+
+                    this.doc.setFont(FONT_NORMAL, 'normal');
+                    this.doc.setFontSize(11);
+                    this.doc.setTextColor(TEXT_COLOR_DARK);
+                }
+
+                this.doc.text(lines, MARGIN, yPos);
+                yPos += lines.length * 6 + 8; // Add extra spacing between paragraphs
+            }
+        });
     }
 
     private addInvestmentPage(proposal: any) {
@@ -799,39 +828,49 @@ class PdfProposalGenerator {
                 }
             });
 
-            // Role Responsibilities section
-            let yPos = (this.doc as any).lastAutoTable.finalY + 15;
+            // Role Responsibilities section (only if resources have descriptions)
+            const resourcesWithDescriptions = proposal.resources.filter((res: Resource) => res.description);
 
-            this.doc.setPage(this.pageNumber);
-            this.doc.setFont(FONT_BOLD, 'bold');
-            this.doc.setFontSize(16);
-            this.doc.setTextColor(TEXT_COLOR_DARK);
-            this.doc.text('Role Responsibilities', MARGIN, yPos);
-            yPos += 15;
+            if (resourcesWithDescriptions.length > 0) {
+                let yPos = (this.doc as any).lastAutoTable.finalY + 15;
 
-            this.doc.setFont(FONT_NORMAL, 'normal');
-            this.doc.setFontSize(10);
-
-            const responsibilities = [
-                { role: 'Project Manager', desc: 'Oversees all project phases from discovery through deployment, manages stakeholder communication with NYC DOC, ensures adherence to timelines and budget, coordinates cross-functional team efforts, and maintains compliance with all regulatory requirements including CJIS and NYC Cyber Command standards.' },
-                { role: 'Solution Architect', desc: 'Designs the overall system architecture ensuring scalability, security, and integration capabilities with JMS, OMS, and NYS data exchanges. Establishes technical' }
-            ];
-
-            responsibilities.forEach(item => {
-                if (yPos > PAGE_HEIGHT - 40) {
-                    this.doc.addPage();
-                    this.pageNumber++;
-                    yPos = MARGIN + 20;
-                }
-
+                this.doc.setPage(this.pageNumber);
                 this.doc.setFont(FONT_BOLD, 'bold');
-                this.doc.text(`${item.role} –`, MARGIN, yPos);
+                this.doc.setFontSize(16);
+                this.doc.setTextColor(TEXT_COLOR_DARK);
+                this.doc.text('Role Responsibilities', MARGIN, yPos);
+                yPos += 15;
 
                 this.doc.setFont(FONT_NORMAL, 'normal');
-                const descLines = this.doc.splitTextToSize(item.desc, CONTENT_WIDTH - 50);
-                this.doc.text(descLines, MARGIN + 50, yPos);
-                yPos += descLines.length * 5 + 8;
-            });
+                this.doc.setFontSize(10);
+
+                resourcesWithDescriptions.forEach((resource: Resource) => {
+                    if (yPos > PAGE_HEIGHT - 40) {
+                        this.doc.addPage();
+                        this.pageNumber++;
+                        yPos = MARGIN + 20;
+
+                        // Add header on new page
+                        this.doc.setFont(FONT_NORMAL, 'normal');
+                        this.doc.setFontSize(10);
+                        this.doc.setTextColor(TEXT_COLOR_DARK);
+                        this.doc.text(this.companyName, MARGIN, 20);
+                        this.doc.text('November 2025', PAGE_WIDTH - MARGIN, 20, { align: 'right' });
+
+                        this.doc.setFont(FONT_NORMAL, 'normal');
+                        this.doc.setFontSize(10);
+                        this.doc.setTextColor(TEXT_COLOR_DARK);
+                    }
+
+                    this.doc.setFont(FONT_BOLD, 'bold');
+                    this.doc.text(`${resource.role} –`, MARGIN, yPos);
+
+                    this.doc.setFont(FONT_NORMAL, 'normal');
+                    const descLines = this.doc.splitTextToSize(resource.description || '', CONTENT_WIDTH - 50);
+                    this.doc.text(descLines, MARGIN + 50, yPos);
+                    yPos += descLines.length * 5 + 8;
+                });
+            }
         });
     }
 

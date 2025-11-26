@@ -71,7 +71,7 @@ const proposalSchema = {
         },
         resources: {
             type: Type.ARRAY,
-            description: "An array of required human resources to complete the project. Generate roles based on the RFP. For each role, estimate a reasonable industry-standard low and high hourly rate in USD.",
+            description: "An array of required human resources to complete the project. Generate roles based on the RFP. For each role, estimate a reasonable industry-standard low and high hourly rate in USD, and provide a detailed description of their responsibilities.",
             items: {
                 type: Type.OBJECT,
                 properties: {
@@ -79,8 +79,9 @@ const proposalSchema = {
                     hours: { type: Type.INTEGER, description: "Estimated total hours for this role." },
                     lowRate: { type: Type.INTEGER, description: "The estimated low-end industry-standard hourly rate for this role in USD." },
                     highRate: { type: Type.INTEGER, description: "The estimated high-end industry-standard hourly rate for this role in USD." },
+                    description: { type: Type.STRING, description: "A detailed 2-3 sentence description of this role's key responsibilities and how they contribute to the project. Be specific to the project's needs." }
                 },
-                required: ["role", "hours", "lowRate", "highRate"]
+                required: ["role", "hours", "lowRate", "highRate", "description"]
             }
         },
         projectTimeline: {
@@ -250,7 +251,7 @@ const proposalChatSchema = {
         },
         resources: {
             type: Type.ARRAY,
-            description: "An array of required human resources to complete the project. Generate roles based on the RFP. For each role, estimate a reasonable industry-standard low and high hourly rate in USD.",
+            description: "An array of required human resources to complete the project. Generate roles based on the RFP. For each role, estimate a reasonable industry-standard low and high hourly rate in USD, and provide a detailed description of their responsibilities.",
             items: {
                 type: Type.OBJECT,
                 properties: {
@@ -258,8 +259,9 @@ const proposalChatSchema = {
                     hours: { type: Type.INTEGER, description: "Estimated total hours for this role." },
                     lowRate: { type: Type.INTEGER, description: "The estimated low-end industry-standard hourly rate for this role in USD." },
                     highRate: { type: Type.INTEGER, description: "The estimated high-end industry-standard hourly rate for this role in USD." },
+                    description: { type: Type.STRING, description: "A detailed 2-3 sentence description of this role's key responsibilities and how they contribute to the project. Be specific to the project's needs." }
                 },
-                required: ["role", "hours", "lowRate", "highRate"]
+                required: ["role", "hours", "lowRate", "highRate", "description"]
             }
         },
         projectTimeline: {
@@ -401,7 +403,7 @@ const templateInstructions: Record<ProposalTemplate, string> = {
 **Core Instructions:**
 1.  **Output Format:** Your entire response MUST be a single, valid JSON object that strictly conforms to the provided schema. Do not include any explanatory text or markdown formatting.
 2.  **Perspective:** All content must be written from the perspective of 'Shaun Coggins Inc.'.
-3.  **Writing Style:** All prose (summaries, approaches) must be well-structured into distinct paragraphs. All grammar and formatting must strictly adhere to the Chicago Manual of Style for business writing.
+3.  **Writing Style:** All prose (summaries, approaches, value proposition) must be well-structured into distinct paragraphs. Separate each paragraph with double line breaks (\\n\\n). Each section should contain 2-4 well-developed paragraphs. All grammar and formatting must strictly adhere to the Chicago Manual of Style for business writing.
 
 **Critical Constraints & Guidelines:**
 *   **Financial Constraint:** Scrutinize the RFP for any mention of a budget (e.g., "not to exceed," "total value"). If a maximum budget is found, the \`investmentEstimate.high\` value in your JSON output MUST NOT exceed this amount. You must tailor the project scope and resources to fit this constraint. If no budget is specified, generate a reasonable estimate based on the project scope.
@@ -418,7 +420,7 @@ const templateInstructions: Record<ProposalTemplate, string> = {
 **Core Instructions:**
 1.  **Output Format:** Your entire response MUST be a single, valid JSON object that strictly conforms to the provided schema.
 2.  **Perspective:** All content must be written from the perspective of 'Shaun Coggins Inc.'.
-3.  **Writing Style:** Use dynamic language and shorter paragraphs. The goal is to excite the client about the possibilities. While the tone is creative, ensure grammar and punctuation strictly adhere to the Chicago Manual of Style to maintain professionalism.
+3.  **Writing Style:** Use dynamic language and shorter paragraphs. Separate each paragraph with double line breaks (\\n\\n). Each section should contain 2-4 well-developed paragraphs. The goal is to excite the client about the possibilities. While the tone is creative, ensure grammar and punctuation strictly adhere to the Chicago Manual of Style to maintain professionalism.
 
 **Critical Constraints & Guidelines:**
 *   **Financial Constraint:** Scrutinize the RFP for any budget constraints. If a maximum value is specified, the \`investmentEstimate.high\` field MUST NOT exceed this amount. Creatively adjust the scope or propose a phased approach to fit. If no budget is mentioned, generate a reasonable estimate.
@@ -435,7 +437,7 @@ const templateInstructions: Record<ProposalTemplate, string> = {
 **Core Instructions:**
 1.  **Output Format:** Your entire response MUST be a single, valid JSON object that strictly conforms to the provided schema.
 2.  **Perspective:** All content must be written from the perspective of 'Shaun Coggins Inc.'.
-3.  **Writing Style:** Be direct and use appropriate technical terminology. The executive summary should be a high-level technical overview. All writing MUST strictly adhere to the Chicago Manual of Style.
+3.  **Writing Style:** Be direct and use appropriate technical terminology. Separate each paragraph with double line breaks (\\n\\n). Each section should contain 2-4 well-developed paragraphs. The executive summary should be a high-level technical overview. All writing MUST strictly adhere to the Chicago Manual of Style.
 
 **Critical Constraints & Guidelines:**
 *   **Financial Constraint:** Scrutinize the RFP for budget constraints. The \`investmentEstimate.high\` field MUST NOT exceed any specified maximum budget. Adjust the technical scope or suggest a phased rollout to comply. If no budget is mentioned, generate an estimate based on technical requirements.
