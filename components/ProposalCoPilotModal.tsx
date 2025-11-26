@@ -307,6 +307,21 @@ const ProposalContent: React.FC<ProposalContentProps> = ({ projectFolder, edited
                         </tbody>
                     </table>
                 </div>
+
+                {/* Role Responsibilities */}
+                {proposal.resources.some(r => r.description) && (
+                    <div className="mt-6">
+                        <h4 className="text-lg font-semibold text-slate-800 mb-4">Role Responsibilities</h4>
+                        <div className="space-y-3">
+                            {proposal.resources.filter(r => r.description).map((res: Resource, index: number) => (
+                                <div key={index} className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                    <div className="font-semibold text-slate-800 mb-1">{res.role}</div>
+                                    <div className="text-sm text-slate-600">{res.description}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </section>
 
             <section>
