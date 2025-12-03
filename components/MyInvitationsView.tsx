@@ -14,9 +14,9 @@ interface Invitation {
     id: string;
     title: string;
     status: string;
-    company_profiles: {
+    company_profiles?: {
       company_name: string;
-    };
+    } | null;
   };
 }
 
@@ -216,9 +216,11 @@ const MyInvitationsView: React.FC = () => {
                     </h3>
 
                     {/* Company */}
-                    <p className="text-sm text-gray-600 mb-2">
-                      From: {invitation.proposals.company_profiles.company_name}
-                    </p>
+                    {invitation.proposals.company_profiles?.company_name && (
+                      <p className="text-sm text-gray-600 mb-2">
+                        From: {invitation.proposals.company_profiles.company_name}
+                      </p>
+                    )}
 
                     {/* Role */}
                     <div className="flex items-center gap-2 mb-2">
@@ -287,7 +289,7 @@ const MyInvitationsView: React.FC = () => {
 
                     {/* Company and Role */}
                     <p className="text-sm text-gray-600 mb-2">
-                      {invitation.proposals.company_profiles.company_name} • {invitation.role}
+                      {invitation.proposals.company_profiles?.company_name || 'Unknown Company'} • {invitation.role}
                     </p>
 
                     {/* Status and Dates */}

@@ -13,6 +13,7 @@ import {
   exportProposalPdf
 } from '../controllers/proposal.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
+import { aiGenerationLimiter, aiRefinementLimiter, exportLimiter, apiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
@@ -20,22 +21,22 @@ const router = Router();
 router.use(authenticate);
 
 // Create new proposal directly
-router.post('/', createProposal);
+router.post('/', aiGenerationLimiter, createProposal);
 
 // Generate new proposal from RFP
-router.post('/generate', generateProposal);
+router.post('/generate', aiGenerationLimiter, generateProposal);
 
 // Get all user's proposals
-router.get('/', getUserProposals);
+router.get('/', apiLimiter, getUserProposals);
 
 // Get specific proposal
-router.get('/:id', getProposalById);
+router.get('/:id', apiLimiter, getProposalById);
 
 // Update proposal content
-router.put('/:id', updateProposal);
+router.put('/:id', apiLimiter, updateProposal);
 
 // Refine section with AI
-router.post('/:id/refine', refineSection);
+router.post('/:id/refine', aiRefinementLimiter, refineSection);
 
 // Update proposal status
 router.put('/:id/status', updateProposalStatus);
@@ -47,9 +48,9 @@ router.put('/:id/withdraw', withdrawProposal);
 router.delete('/:id', deleteProposal);
 
 // Export proposal as DOCX
-router.get('/:id/export/docx', exportProposalDocx);
+router.get('/:id/export/docx', exportLimiter, exportProposalDocx);
 
 // Export proposal as PDF
-router.get('/:id/export/pdf', exportProposalPdf);
+router.get('/:id/export/pdf', exportLimiter, exportProposalPdf);
 
 export default router;

@@ -24,24 +24,15 @@ export const syncService = {
   },
 
   // Sync a project folder to backend after generation
-  syncProject: async (folder: ProjectFolder) => {
-    if (!getAuthToken()) return;
+  // Returns the synced proposal ID (either existing or newly created)
+  syncProject: async (folder: ProjectFolder): Promise<string | null> => {
+    if (!getAuthToken()) return null;
 
     try {
-      // First, check if we need to create an RFP entry
-      // The backend expects RFP to exist before proposal
-
-      // For now, we'll store the proposal with content
-      // This is a simplified sync - full implementation would
-      // upload RFP file first, then generate proposal
-
-      const proposalData = {
-        title: folder.proposal.projectName,
-        content: folder.proposal,
-        status: folder.salesStage === 'Closed-Won' ? 'final' :
-                folder.salesStage === 'Closed-Lost' ? 'archived' : 'draft',
-        // Store additional metadata
-        metadata: {
+      // Store metadata inside the content object
+      const contentWithMetadata = {
+        ...folder.proposal,
+        _metadata: {
           folderName: folder.folderName,
           rfpFileName: folder.rfpFileName,
           generatedDate: folder.generatedDate,
@@ -49,30 +40,67 @@ export const syncService = {
           teamId: folder.teamId,
           salesStage: folder.salesStage,
           probability: folder.probability,
-          dealValue: folder.dealValue,
-          expectedCloseDate: folder.expectedCloseDate,
           scorecard: folder.scorecard,
           slideshow: folder.slideshow,
           videoScript: folder.videoScript,
         }
       };
 
-      // Check if this proposal already exists (by matching metadata)
-      const existingProposals = await proposalsAPI.list();
-      const existing = existingProposals.proposals?.find(
-        (p: any) => p.metadata?.folderName === folder.folderName ||
-                    p.title === folder.proposal.projectName
-      );
+      const proposalData = {
+        title: folder.proposal.projectName,
+        content: contentWithMetadata,
+        status: folder.salesStage === 'Closed-Won' ? 'final' :
+                folder.salesStage === 'Closed-Lost' ? 'archived' : 'draft',
+        template: folder.templateId || 'standard',
+      };
+
+      // Check if this proposal already exists by ID (if it's a UUID) or by matching metadata
+      let existing = null;
+      
+      // First, try to get by ID if it looks like a UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(folder.id)) {
+        try {
+          const response = await proposalsAPI.get(folder.id);
+          if (response.proposal && !response.error) {
+            existing = { id: response.proposal.id };
+          }
+        } catch (err) {
+          // Proposal doesn't exist by ID, continue to search by metadata
+        }
+      }
+
+      // If not found by ID, search by metadata
+      if (!existing) {
+        const existingProposals = await proposalsAPI.list();
+        existing = existingProposals.proposals?.find(
+          (p: any) => p.content?._metadata?.folderName === folder.folderName ||
+                      p.title === folder.proposal.projectName
+        );
+      }
 
       if (existing) {
+        // Update existing proposal
+        console.log(`[Sync] Updating existing proposal: ${existing.id}`);
         await proposalsAPI.update(existing.id, proposalData);
+        return existing.id;
       } else {
-        // For new proposals without backend RFP, we'll need to handle this
-        // The current backend expects rfpId, so we may need to adjust
-        console.log('New project sync - backend integration pending');
+        // Create new proposal
+        console.log(`[Sync] Creating new proposal: ${folder.proposal.projectName}`);
+        const response = await proposalsAPI.create(proposalData);
+        if (response.proposal?.id) {
+          console.log(`[Sync] Proposal created with ID: ${response.proposal.id}`);
+          return response.proposal.id;
+        }
+        console.warn('[Sync] Proposal creation response missing ID');
+        return null;
       }
     } catch (error) {
-      console.error('Failed to sync project:', error);
+      console.error('[Sync] Failed to sync project:', error);
+      if (error instanceof Error) {
+        console.error('[Sync] Error details:', error.message, error.stack);
+      }
+      return null;
     }
   },
 
@@ -86,14 +114,18 @@ export const syncService = {
 
       // Convert backend proposals to frontend ProjectFolder format
       return response.proposals.map((proposal: any) => {
-        const metadata = proposal.metadata || {};
+        const content = proposal.content || {};
+        const metadata = content._metadata || {};
+        // Remove metadata from proposal content
+        const { _metadata, ...proposalContent } = content;
+        
         return {
           id: proposal.id,
           folderName: metadata.folderName || proposal.title,
           rfpFileName: metadata.rfpFileName || 'Unknown',
           rfpContent: '',
           rfpFileDataUrl: '',
-          proposal: proposal.content || {},
+          proposal: proposalContent,
           generatedDate: metadata.generatedDate || proposal.created_at,
           chatHistory: [],
           templateId: metadata.templateId || 'standard',
@@ -102,8 +134,7 @@ export const syncService = {
           useGoogleSearch: metadata.useGoogleSearch || false,
           salesStage: metadata.salesStage || 'Prospecting',
           probability: metadata.probability || 10,
-          dealValue: metadata.dealValue,
-          expectedCloseDate: metadata.expectedCloseDate,
+          nextStepDate: null,
           scorecard: metadata.scorecard,
           slideshow: metadata.slideshow,
           videoScript: metadata.videoScript,

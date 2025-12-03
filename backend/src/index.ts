@@ -9,12 +9,20 @@ import rfpRoutes from './routes/rfp.routes.js';
 import proposalRoutes from './routes/proposal.routes.js';
 import networkRoutes from './routes/network.routes.js';
 import teamRoutes from './routes/team.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
+import { env } from './utils/validateEnv.js';
+import { requestLogger, errorLogger, performanceMonitor } from './middleware/logger.js';
 
+// Load environment variables first
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const PORT = env.PORT || 3001;
+const FRONTEND_URL = env.FRONTEND_URL;
+
+// Logging middleware (must be first)
+app.use(requestLogger);
+app.use(performanceMonitor);
 
 // Middleware
 app.use(cors({
@@ -103,7 +111,14 @@ app.get('/api', (req, res) => {
         getMyInvitations: 'GET /api/team/invitations',
         acceptInvitation: 'POST /api/team/invitations/:id/accept',
         declineInvitation: 'POST /api/team/invitations/:id/decline',
-        removeTeamMember: 'DELETE /api/team/proposal/:proposalId/member/:memberId'
+        removeTeamMember: 'DELETE /api/team/proposal/:proposalId/member/:memberId',
+        getInvitationByToken: 'GET /api/team/invitations/token/:token'
+      },
+      analytics: {
+        proposalTimes: 'GET /api/analytics/proposal-times',
+        teamResponses: 'GET /api/analytics/team-responses',
+        trackStageStart: 'POST /api/analytics/track-stage',
+        trackStageComplete: 'PUT /api/analytics/track-stage/:id/complete'
       }
     }
   });
@@ -133,9 +148,12 @@ app.use('/api/network', networkRoutes);
 // Team invitation routes
 app.use('/api/team', teamRoutes);
 
+// Analytics routes
+app.use('/api/analytics', analyticsRoutes);
+
 // Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', err);
+app.use(errorLogger);
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'

@@ -1,6 +1,11 @@
 import { Request, Response } from 'express';
 import { supabase } from '../utils/supabase.js';
 import crypto from 'crypto';
+import {
+  sendInvitationEmail,
+  sendAcceptanceNotification,
+  sendDeclineNotification
+} from '../services/email.service.js';
 
 /**
  * Invite a team member to a proposal
@@ -67,12 +72,17 @@ export const inviteTeamMember = async (req: Request, res: Response): Promise<voi
     }
 
     // Check if invitation already exists
-    const { data: existingInvite } = await supabase
+    const { data: existingInvite, error: existingError } = await supabase
       .from('proposal_team')
       .select('id, status')
       .eq('proposal_id', proposalId)
       .eq('member_email', memberEmail)
-      .single();
+      .maybeSingle(); // Use maybeSingle() instead of single() to avoid error when no record exists
+
+    // If there's an error other than "not found", log it
+    if (existingError && existingError.code !== 'PGRST116') {
+      console.error('Error checking existing invitation:', existingError);
+    }
 
     if (existingInvite) {
       if (existingInvite.status === 'invited') {
@@ -98,44 +108,73 @@ export const inviteTeamMember = async (req: Request, res: Response): Promise<voi
     let teamMember;
     if (existingInvite && existingInvite.status === 'declined') {
       // Update existing declined invitation
+      const updateData: any = {
+        role,
+        rate_range: rateRange || null,
+        status: 'invited',
+        invited_at: new Date().toISOString(),
+        responded_at: null,
+      };
+      
+      // Try to include invitation_token
+      try {
+        updateData.invitation_token = invitationToken;
+      } catch (e) {
+        console.warn('Could not set invitation_token - column may not exist');
+      }
+
       const { data, error: updateError } = await supabase
         .from('proposal_team')
-        .update({
-          role,
-          rate_range: rateRange || null,
-          status: 'invited',
-          invited_at: new Date().toISOString(),
-          responded_at: null,
-          invitation_token: invitationToken
-        })
+        .update(updateData)
         .eq('id', existingInvite.id)
         .select()
         .single();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Update invitation error:', updateError);
+        if (updateError.message?.includes('invitation_token') || updateError.code === '42703') {
+          throw new Error('Database migration required: Please run supabase_add_invitation_token.sql to add the invitation_token column');
+        }
+        throw updateError;
+      }
       teamMember = data;
     } else {
       // Create new invitation
+      // Build insert object - only include invitation_token if column exists
+      const insertData: any = {
+        proposal_id: proposalId,
+        member_email: memberEmail,
+        role,
+        rate_range: rateRange || null,
+        status: 'invited',
+      };
+      
+      // Try to include invitation_token - if column doesn't exist, this will be ignored
+      // The migration should add this column, but we'll handle gracefully if it hasn't been run
+      try {
+        insertData.invitation_token = invitationToken;
+      } catch (e) {
+        console.warn('Could not set invitation_token - column may not exist. Run migration: supabase_add_invitation_token.sql');
+      }
+
       const { data, error: insertError } = await supabase
         .from('proposal_team')
-        .insert({
-          proposal_id: proposalId,
-          member_email: memberEmail,
-          role,
-          rate_range: rateRange || null,
-          status: 'invited',
-          invitation_token: invitationToken
-        })
+        .insert(insertData)
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('Insert invitation error:', insertError);
+        // If error is about invitation_token column, provide helpful message
+        if (insertError.message?.includes('invitation_token') || insertError.code === '42703') {
+          throw new Error('Database migration required: Please run supabase_add_invitation_token.sql to add the invitation_token column');
+        }
+        throw insertError;
+      }
       teamMember = data;
     }
 
-    // TODO: Send invitation email
-    // This will be implemented with email service (Resend, SendGrid, etc.)
-    // For now, we'll return the invitation details
+    // Send invitation email
     const invitationLink = `${process.env.FRONTEND_URL}/invitations/accept?token=${invitationToken}`;
 
     // Get sender's profile for email personalization
@@ -144,6 +183,22 @@ export const inviteTeamMember = async (req: Request, res: Response): Promise<voi
       .select('company_name')
       .eq('user_id', req.userId)
       .single();
+
+    // Send the invitation email
+    const emailResult = await sendInvitationEmail({
+      recipientEmail: memberEmail,
+      recipientRole: role,
+      proposalTitle: proposal.title,
+      inviterCompanyName: senderProfile?.company_name || 'A company',
+      invitationLink,
+      personalMessage: message,
+      rateRange: rateRange
+    });
+
+    if (!emailResult.success) {
+      console.warn('Failed to send invitation email:', emailResult.error);
+      // Continue even if email fails - the invitation is still created
+    }
 
     res.status(201).json({
       message: 'Team member invited successfully',
@@ -156,14 +211,25 @@ export const inviteTeamMember = async (req: Request, res: Response): Promise<voi
         invitedAt: teamMember.invited_at,
         invitationLink, // In development, return link; in production, send via email
         proposalTitle: proposal.title,
-        inviterCompany: senderProfile?.company_name || 'A company'
+        inviterCompany: senderProfile?.company_name || 'A company',
+        emailSent: emailResult.success
       }
     });
   } catch (error) {
     console.error('Invite team member error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const requestData = {
+      proposalId: req.body?.proposalId,
+      memberEmail: req.body?.memberEmail
+    };
+    console.error('Error details:', {
+      message: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      requestData
+    });
     res.status(500).json({
       error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: errorMessage
     });
   }
 };
@@ -262,6 +328,92 @@ export const getProposalTeam = async (req: Request, res: Response): Promise<void
 };
 
 /**
+ * Get invitation by token (public endpoint for email links)
+ * GET /api/team/invitations/token/:token
+ */
+export const getInvitationByToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      res.status(400).json({
+        error: 'Missing token',
+        message: 'Invitation token is required'
+      });
+      return;
+    }
+
+    // Get invitation by token
+    const { data: invitation, error: inviteError } = await supabase
+      .from('proposal_team')
+      .select(`
+        id,
+        proposal_id,
+        member_email,
+        role,
+        rate_range,
+        status,
+        invited_at,
+        responded_at,
+        proposals!proposal_team_proposal_id_fkey (
+          id,
+          title,
+          user_id,
+          company_profiles:user_id (
+            company_name
+          )
+        )
+      `)
+      .eq('invitation_token', token)
+      .single();
+
+    if (inviteError || !invitation) {
+      res.status(404).json({
+        error: 'Invitation not found',
+        message: 'Invalid or expired invitation token'
+      });
+      return;
+    }
+
+    // Check if already responded
+    if (invitation.status !== 'invited') {
+      res.status(400).json({
+        error: 'Already responded',
+        message: `This invitation has already been ${invitation.status}`,
+        invitation: {
+          id: invitation.id,
+          status: invitation.status,
+          respondedAt: invitation.responded_at
+        }
+      });
+      return;
+    }
+
+    // Get inviter company name
+    const inviterCompany = (invitation.proposals as any)?.company_profiles?.company_name || 'A company';
+
+    res.json({
+      invitation: {
+        id: invitation.id,
+        proposalId: invitation.proposal_id,
+        proposalTitle: (invitation.proposals as any)?.title,
+        memberEmail: invitation.member_email,
+        role: invitation.role,
+        rateRange: invitation.rate_range,
+        invitedAt: invitation.invited_at,
+        inviterCompany
+      }
+    });
+  } catch (error) {
+    console.error('Get invitation by token error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
  * Get invitations for the authenticated user
  * GET /api/team/invitations
  */
@@ -302,7 +454,7 @@ export const getMyInvitations = async (req: Request, res: Response): Promise<voi
         status,
         invited_at,
         responded_at,
-        proposals:proposal_id (
+        proposals!proposal_team_proposal_id_fkey (
           id,
           title,
           status,
@@ -413,6 +565,33 @@ export const acceptInvitation = async (req: Request, res: Response): Promise<voi
 
     if (updateError) throw updateError;
 
+    // Send acceptance notification email to proposal owner
+    try {
+      // Get proposal details
+      const { data: proposal } = await supabase
+        .from('proposals')
+        .select('user_id, title')
+        .eq('id', invitation.proposal_id)
+        .single();
+
+      if (proposal) {
+        // Get owner's email
+        const { data: ownerData } = await supabase.auth.admin.getUserById(proposal.user_id);
+
+        if (ownerData.user?.email) {
+          await sendAcceptanceNotification({
+            recipientEmail: ownerData.user.email,
+            memberEmail: invitation.member_email,
+            memberRole: invitation.role,
+            proposalTitle: proposal.title
+          });
+        }
+      }
+    } catch (emailError) {
+      // Log error but don't fail the request
+      console.error('Failed to send acceptance notification:', emailError);
+    }
+
     res.json({
       message: 'Invitation accepted successfully',
       invitation: updatedInvitation
@@ -491,6 +670,33 @@ export const declineInvitation = async (req: Request, res: Response): Promise<vo
       .single();
 
     if (updateError) throw updateError;
+
+    // Send decline notification email to proposal owner
+    try {
+      // Get proposal details
+      const { data: proposal } = await supabase
+        .from('proposals')
+        .select('user_id, title')
+        .eq('id', invitation.proposal_id)
+        .single();
+
+      if (proposal) {
+        // Get owner's email
+        const { data: ownerData } = await supabase.auth.admin.getUserById(proposal.user_id);
+
+        if (ownerData.user?.email) {
+          await sendDeclineNotification({
+            recipientEmail: ownerData.user.email,
+            memberEmail: invitation.member_email,
+            memberRole: invitation.role,
+            proposalTitle: proposal.title
+          });
+        }
+      }
+    } catch (emailError) {
+      // Log error but don't fail the request
+      console.error('Failed to send decline notification:', emailError);
+    }
 
     res.json({
       message: 'Invitation declined',

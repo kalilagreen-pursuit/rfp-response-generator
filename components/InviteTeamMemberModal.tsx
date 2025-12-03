@@ -68,7 +68,7 @@ const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
       const response = await teamAPI.invite(inviteData);
 
       if (response.error) {
-        setError(response.message || 'Failed to send invitation');
+        setError(response.message || response.error || 'Failed to send invitation');
       } else {
         // Success!
         resetForm();
@@ -76,7 +76,13 @@ const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
         onClose();
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to send invitation');
+      console.error('Invitation error:', err);
+      // Try to extract error message from various possible formats
+      const errorMessage = err?.response?.data?.message || 
+                          err?.message || 
+                          err?.error?.message ||
+                          'Failed to send invitation. Please check your connection and try again.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

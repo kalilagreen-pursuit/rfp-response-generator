@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import type { ProjectFolder, SalesStage, View } from '../types';
 import { formatCurrency } from '../utils/formatters';
 import { FolderIcon, UsersIcon, ClipboardCheckIcon, PresentationIcon } from './icons';
+import AnalyticsCards from './AnalyticsCards';
 
 interface DashboardViewProps {
     projects: ProjectFolder[];
@@ -34,7 +35,7 @@ const SalesPipelineChart: React.FC<{ projects: ProjectFolder[] }> = ({ projects 
         projects.forEach(p => {
             if (stages.includes(p.salesStage)) {
                 dataByStage[p.salesStage].count++;
-                dataByStage[p.salesStage].totalValue += p.proposal.investmentEstimate.high;
+                dataByStage[p.salesStage].totalValue += (p.proposal.investmentEstimate?.high || 0);
             }
         });
 
@@ -97,7 +98,7 @@ const SalesPipelineChart: React.FC<{ projects: ProjectFolder[] }> = ({ projects 
 const DashboardView: React.FC<DashboardViewProps> = ({ projects, onViewChange }) => {
     const stats = useMemo(() => {
         const totalProjects = projects.length;
-        const totalValue = projects.reduce((sum, p) => sum + p.proposal.investmentEstimate.high, 0);
+        const totalValue = projects.reduce((sum, p) => sum + (p.proposal.investmentEstimate?.high || 0), 0);
         const winRate = projects.length > 0
             ? (projects.filter(p => p.salesStage === 'Closed-Won').length / projects.filter(p => p.salesStage === 'Closed-Won' || p.salesStage === 'Closed-Lost').length) * 100
             : 0;
@@ -139,6 +140,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ projects, onViewChange })
                     </button>
                 </div>
             </div>
+
+            {/* Analytics Section */}
+            <AnalyticsCards className="mb-6" />
         </div>
     );
 };

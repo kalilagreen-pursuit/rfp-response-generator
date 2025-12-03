@@ -1,13 +1,29 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { AppProvider } from './contexts/AppContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthScreen from './components/AuthScreen';
+import InvitationAcceptPage from './components/InvitationAcceptPage';
 
 // Wrapper component to handle auth state
 const AuthenticatedApp: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const [showInvitationPage, setShowInvitationPage] = useState(false);
+
+  // Check for invitation token in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const path = window.location.pathname;
+    
+    // Show invitation page if we're on /invitations/accept with a token
+    if (path.includes('/invitations/accept') && token) {
+      setShowInvitationPage(true);
+    } else {
+      setShowInvitationPage(false);
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -17,6 +33,24 @@ const AuthenticatedApp: React.FC = () => {
           <p className="text-slate-400 mt-4">Loading...</p>
         </div>
       </div>
+    );
+  }
+
+  // Show invitation accept page if token is in URL
+  if (showInvitationPage) {
+    return (
+      <AppProvider>
+        <InvitationAcceptPage 
+          onNavigate={(view) => {
+            // Clear URL
+            window.history.replaceState({}, '', '/');
+            setShowInvitationPage(false);
+            // Reload to show main app - the view will be handled by App component
+            // We could enhance this later to pass view state
+            window.location.href = '/';
+          }}
+        />
+      </AppProvider>
     );
   }
 

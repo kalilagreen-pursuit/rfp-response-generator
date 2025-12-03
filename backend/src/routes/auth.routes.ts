@@ -9,6 +9,7 @@ import {
   resetPassword
 } from '../controllers/auth.controller.js';
 import { authenticate, validateFields } from '../middleware/auth.middleware.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
@@ -17,16 +18,16 @@ const router = Router();
  */
 
 // POST /api/auth/register - Register new user
-router.post('/register', validateFields(['email', 'password']), register);
+router.post('/register', authLimiter, validateFields(['email', 'password']), register);
 
 // POST /api/auth/login - Login user
-router.post('/login', validateFields(['email', 'password']), login);
+router.post('/login', authLimiter, validateFields(['email', 'password']), login);
 
 // POST /api/auth/refresh - Refresh access token
-router.post('/refresh', validateFields(['refresh_token']), refreshToken);
+router.post('/refresh', authLimiter, validateFields(['refresh_token']), refreshToken);
 
 // POST /api/auth/forgot-password - Request password reset
-router.post('/forgot-password', validateFields(['email']), forgotPassword);
+router.post('/forgot-password', authLimiter, validateFields(['email']), forgotPassword);
 
 /**
  * Protected routes (authentication required)

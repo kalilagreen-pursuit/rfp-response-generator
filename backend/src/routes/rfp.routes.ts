@@ -10,6 +10,7 @@ import {
 } from '../controllers/rfp.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { upload } from '../middleware/upload.middleware.js';
+import { uploadLimiter, apiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
@@ -18,16 +19,16 @@ const router = Router();
  */
 
 // GET /api/rfp - Get all user's RFPs
-router.get('/', authenticate, getUserRFPs);
+router.get('/', authenticate, apiLimiter, getUserRFPs);
 
 // POST /api/rfp/upload - Upload and parse RFP
-router.post('/upload', authenticate, upload.single('file'), uploadAndParseRFP);
+router.post('/upload', authenticate, uploadLimiter, upload.single('file'), uploadAndParseRFP);
 
 // GET /api/rfp/:id - Get RFP by ID
-router.get('/:id', authenticate, getRFPById);
+router.get('/:id', authenticate, apiLimiter, getRFPById);
 
 // POST /api/rfp/:id/reparse - Re-parse existing RFP
-router.post('/:id/reparse', authenticate, reparseRFP);
+router.post('/:id/reparse', authenticate, uploadLimiter, reparseRFP);
 
 // PUT /api/rfp/:id/validate - Validate and update RFP data
 router.put('/:id/validate', authenticate, validateRFP);

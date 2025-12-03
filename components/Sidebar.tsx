@@ -70,6 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, isOpen, on
         { view: 'crm', label: 'CRM', icon: UsersIcon, tourId: 'crm-nav' },
         { view: 'calendar', label: 'Calendar', icon: CalendarIcon, tourId: 'calendar-nav' },
         { view: 'invitations', label: 'Invitations', icon: EmailIcon, tourId: 'invitations-nav' },
+        { view: 'marketplace', label: 'Marketplace', icon: UsersIcon, tourId: 'marketplace-nav' },
     ];
     
     const workspaceNavItems: Omit<NavItemProps, 'currentView' | 'onViewChange'>[] = [

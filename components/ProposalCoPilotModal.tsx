@@ -7,6 +7,10 @@ import { useAppContext } from '../contexts/AppContext';
 import { continueChatInProposal } from '@/services/geminiService';
 import { generateIcsContent, downloadIcsFile } from '../utils/calendarExporter';
 import { calculateProjectDatesAndPhases } from '../utils/timelineParser';
+import TeamMembersList from './TeamMembersList';
+import InviteTeamMemberModal from './InviteTeamMemberModal';
+import { syncService } from '../services/syncService';
+import { analyticsAPI } from '../services/api';
 
 interface EditableSectionProps {
     title: string;
@@ -400,6 +404,51 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
   const [isChatOpen, setIsChatOpen] = useState(true);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [editedProposal, setEditedProposal] = useState<Proposal | null>(projectFolder?.proposal || null);
+  const [activeTab, setActiveTab] = useState<'proposal' | 'team'>('proposal');
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [teamRefreshTrigger, setTeamRefreshTrigger] = useState(0);
+  const [syncedProposalId, setSyncedProposalId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Auto-sync proposal when modal opens
+  useEffect(() => {
+    if (projectFolder && syncService.isAuthenticated()) {
+      console.log('[ProposalCoPilot] Starting proposal sync for:', projectFolder.id);
+      setIsSyncing(true);
+      syncService.syncProject(projectFolder)
+        .then((proposalId) => {
+          if (proposalId) {
+            console.log('[ProposalCoPilot] Proposal synced successfully:', proposalId);
+            setSyncedProposalId(proposalId);
+            // Update the project folder with the synced ID if it changed
+            if (proposalId !== projectFolder.id) {
+              console.log('[ProposalCoPilot] Updating project folder ID from', projectFolder.id, 'to', proposalId);
+              onUpdateProject({ ...projectFolder, id: proposalId });
+              addToast('Proposal synced to database', 'success');
+            } else {
+              addToast('Proposal already synced', 'info');
+            }
+          } else {
+            console.warn('[ProposalCoPilot] Sync returned null proposal ID');
+            setSyncedProposalId(projectFolder.id);
+          }
+        })
+        .catch((error) => {
+          console.error('[ProposalCoPilot] Failed to sync proposal:', error);
+          addToast('Failed to sync proposal. Using local version.', 'error');
+          // Still allow using the modal even if sync fails
+          // Use the original ID as fallback
+          setSyncedProposalId(projectFolder.id);
+        })
+        .finally(() => {
+          setIsSyncing(false);
+        });
+    } else {
+      // If not authenticated, just use the folder ID
+      console.log('[ProposalCoPilot] Not authenticated, skipping sync');
+      setSyncedProposalId(projectFolder?.id || null);
+    }
+  }, [projectFolder?.id]); // Sync when proposal ID changes
 
   useEffect(() => {
     // Reset local state if the project folder changes
@@ -411,6 +460,38 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [projectFolder?.chatHistory, isResponding]);
+
+  // Track proposal editing time
+  useEffect(() => {
+    let trackingId: string | null = null;
+
+    if (syncedProposalId && syncService.isAuthenticated()) {
+      // Start tracking the "edit" stage when modal opens
+      analyticsAPI.trackStageStart(syncedProposalId, 'edit')
+        .then((response) => {
+          if (response.tracking?.id) {
+            trackingId = response.tracking.id;
+            console.log('[ProposalCoPilot] Started tracking edit stage:', response.tracking.id);
+          }
+        })
+        .catch((error) => {
+          console.error('[ProposalCoPilot] Failed to start time tracking:', error);
+        });
+    }
+
+    // Complete tracking when modal closes
+    return () => {
+      if (trackingId) {
+        analyticsAPI.trackStageComplete(trackingId)
+          .then(() => {
+            console.log('[ProposalCoPilot] Completed tracking edit stage');
+          })
+          .catch((error) => {
+            console.error('[ProposalCoPilot] Failed to complete time tracking:', error);
+          });
+      }
+    };
+  }, [syncedProposalId]); // Only run when synced proposal ID is set
 
   if (!projectFolder || !editedProposal) return null;
   const { proposal } = projectFolder;
@@ -431,6 +512,32 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
     addToast(`AI preference for '${sectionKey}' saved to playbook.`, 'success');
   };
 
+  const handleDownloadWithTracking = async () => {
+    // Track the export stage
+    if (syncedProposalId && syncService.isAuthenticated()) {
+      try {
+        const trackingResponse = await analyticsAPI.trackStageStart(syncedProposalId, 'export');
+        const trackingId = trackingResponse.tracking?.id;
+
+        // Call the original download function
+        onDownloadPdf(projectFolder);
+
+        // Complete the tracking immediately after initiating download
+        if (trackingId) {
+          await analyticsAPI.trackStageComplete(trackingId);
+          console.log('[ProposalCoPilot] Tracked export stage completion');
+        }
+      } catch (error) {
+        console.error('[ProposalCoPilot] Failed to track export:', error);
+        // Still proceed with download even if tracking fails
+        onDownloadPdf(projectFolder);
+      }
+    } else {
+      // If not synced/authenticated, just download
+      onDownloadPdf(projectFolder);
+    }
+  };
+
   const handleSaveChanges = () => {
     if (editedProposal) {
         const { startDate, endDate, phases } = calculateProjectDatesAndPhases(projectFolder.generatedDate, editedProposal.projectTimeline);
@@ -443,6 +550,11 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
         });
         addToast('Manual edits saved successfully.', 'success');
     }
+  };
+
+  const handleInviteSent = () => {
+    setTeamRefreshTrigger(prev => prev + 1);
+    addToast('Invitation sent successfully!', 'success');
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -515,7 +627,8 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
           </div>
           <div className="flex items-center space-x-1 sm:space-x-2 self-end sm:self-auto flex-wrap">
             <div className="flex items-center space-x-2" role="tablist" aria-label="Asset views">
-                <button role="tab" aria-selected="true" className="px-3 py-2 text-sm font-semibold border-b-2 border-white text-white" title="Current: Proposal">Proposal</button>
+                <button role="tab" aria-selected={activeTab === 'proposal'} onClick={() => setActiveTab('proposal')} className={`px-3 py-2 text-sm font-semibold border-b-2 ${activeTab === 'proposal' ? 'border-white text-white' : 'border-transparent text-slate-300 hover:text-white hover:border-slate-400'}`} title="View Proposal">Proposal</button>
+                <button role="tab" aria-selected={activeTab === 'team'} onClick={() => setActiveTab('team')} className={`px-3 py-2 text-sm font-semibold border-b-2 ${activeTab === 'team' ? 'border-white text-white' : 'border-transparent text-slate-300 hover:text-white hover:border-slate-400'}`} title="View Team Members">Team</button>
                 <button role="tab" aria-selected="false" onClick={() => onViewScorecard(projectFolder)} disabled={!hasScorecard} className="px-3 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-300 hover:text-white hover:border-slate-400 disabled:text-slate-500 disabled:cursor-not-allowed" title={hasScorecard ? 'View Scorecard' : 'Generate Scorecard first'}>Scorecard</button>
                 <button role="tab" aria-selected="false" onClick={() => onViewSlideshow(projectFolder)} disabled={!hasSlideshow} className="px-3 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-300 hover:text-white hover:border-slate-400 disabled:text-slate-500 disabled:cursor-not-allowed" title={hasSlideshow ? 'View Presentation' : 'Generate Presentation first'}>Slides</button>
             </div>
@@ -548,10 +661,10 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
             >
                 <RefreshIcon className={`w-5 h-5 ${isRegeneratingProposal ? 'animate-spin' : ''}`} />
             </button>
-             <button 
-                onClick={() => onDownloadPdf(projectFolder)} 
+             <button
+                onClick={handleDownloadWithTracking}
                 disabled={isDownloadingPdf || isRegeneratingProposal}
-                title="Download as PDF" 
+                title="Download as PDF"
                 aria-label="Download as PDF"
                 className="p-2 rounded-full text-slate-300 hover:bg-slate-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -567,13 +680,56 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
         </div>
         <div className="flex-grow flex flex-col lg:flex-row min-h-0 overflow-hidden">
             <div className={`w-full ${isChatOpen ? 'lg:w-3/5' : 'lg:w-full'} overflow-y-auto border-b lg:border-b-0 ${isChatOpen ? 'lg:border-r' : ''} border-slate-200 p-6 transition-all duration-300 ease-in-out`}>
-                <ProposalContent 
-                    projectFolder={projectFolder} 
-                    editedProposal={editedProposal} 
-                    onViewRfp={onViewRfp}
-                    onContentChange={handleContentChange}
-                    onTeach={handleTeachAI}
-                />
+                {activeTab === 'proposal' ? (
+                    <ProposalContent 
+                        projectFolder={projectFolder} 
+                        editedProposal={editedProposal} 
+                        onViewRfp={onViewRfp}
+                        onContentChange={handleContentChange}
+                        onTeach={handleTeachAI}
+                    />
+                ) : (
+                    <div className="space-y-6">
+                        <div>
+                            <h3 className="text-2xl font-bold text-slate-800 mb-2">Team Collaboration</h3>
+                            <p className="text-slate-600 mb-6">Invite team members to collaborate on this proposal.</p>
+                        </div>
+                        {isSyncing ? (
+                            <div className="bg-white rounded-lg shadow-sm p-6">
+                                <div className="flex items-center justify-center py-8">
+                                    <svg
+                                        className="animate-spin h-8 w-8 text-red-600"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <circle
+                                            className="opacity-25"
+                                            cx="12"
+                                            cy="12"
+                                            r="10"
+                                            stroke="currentColor"
+                                            strokeWidth="4"
+                                        ></circle>
+                                        <path
+                                            className="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                        ></path>
+                                    </svg>
+                                    <span className="ml-3 text-gray-600">Syncing proposal...</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <TeamMembersList
+                                proposalId={syncedProposalId || projectFolder.id}
+                                isOwner={true}
+                                onInviteClick={() => setIsInviteModalOpen(true)}
+                                refreshTrigger={teamRefreshTrigger}
+                            />
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className={`w-full lg:w-2/5 flex-col bg-slate-50 ${isChatOpen ? 'flex' : 'hidden'}`}>
@@ -626,6 +782,13 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
             </div>
         </div>
       </div>
+      <InviteTeamMemberModal
+        proposalId={syncedProposalId || projectFolder.id}
+        proposalTitle={proposal.projectName}
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        onInviteSent={handleInviteSent}
+      />
     </div>
   );
 };

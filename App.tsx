@@ -30,6 +30,8 @@ import WhitepaperStudioView from './components/WhitepaperStudioView';
 import IndustryPlaybookEditor from './components/IndustryPlaybookEditor';
 import DocumentViewerModal from './components/DocumentViewerModal';
 import MyInvitationsView from './components/MyInvitationsView';
+import MarketplaceView from './components/MarketplaceView';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const allSalesStages: SalesStage[] = ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Closed-Won', 'Closed-Lost'];
 
@@ -476,6 +478,8 @@ const App: React.FC = () => {
                 return <WhitepaperStudioView projects={projectFolders} />;
             case 'invitations':
                 return <MyInvitationsView />;
+            case 'marketplace':
+                return <MarketplaceView />;
             default: return null;
         }
     };
@@ -493,24 +497,28 @@ const App: React.FC = () => {
                     <Header onToggleSidebar={() => setIsSidebarOpen(true)} />
                     <main className="flex-grow overflow-y-auto p-4 sm:p-6 lg:p-8">
                         <div className="max-w-screen-2xl mx-auto">
-                            {renderCurrentView()}
+                            <ErrorBoundary>
+                                {renderCurrentView()}
+                            </ErrorBoundary>
                         </div>
                     </main>
                 </div>
                 {selectedProjectForCoPilot && (
-                    <ProposalCoPilotModal
-                        projectFolder={selectedProjectForCoPilot}
-                        onClose={handleCloseAllAssetModals} 
-                        onEmail={handleEmailProposal} 
-                        onViewScorecard={handleViewScorecard}
-                        onViewSlideshow={handleGenerateSlideshow}
-                        onUpdateProject={updateProjectFolder}
-                        onDownloadPdf={handleDownloadProposalPdf}
-                        onViewRfp={handleViewRfp}
-                        isDownloadingPdf={isDownloadingPdf}
-                        onRegenerateProposal={handleRegenerateProposal}
-                        isRegeneratingProposal={isRegeneratingProposal}
-                    />
+                    <ErrorBoundary>
+                        <ProposalCoPilotModal
+                            projectFolder={selectedProjectForCoPilot}
+                            onClose={handleCloseAllAssetModals}
+                            onEmail={handleEmailProposal}
+                            onViewScorecard={handleViewScorecard}
+                            onViewSlideshow={handleGenerateSlideshow}
+                            onUpdateProject={updateProjectFolder}
+                            onDownloadPdf={handleDownloadProposalPdf}
+                            onViewRfp={handleViewRfp}
+                            isDownloadingPdf={isDownloadingPdf}
+                            onRegenerateProposal={handleRegenerateProposal}
+                            isRegeneratingProposal={isRegeneratingProposal}
+                        />
+                    </ErrorBoundary>
                 )}
                 {selectedProjectForScorecard && (
                     <ScorecardModal 

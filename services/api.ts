@@ -104,6 +104,17 @@ export const profileAPI = {
     });
     return response.json();
   },
+
+  getMarketplace: async (params?: { industry?: string; search?: string; limit?: number; offset?: number }) => {
+    const query = new URLSearchParams(params as any).toString();
+    const response = await authFetch(`/profile/marketplace${query ? `?${query}` : ''}`);
+    return response.json();
+  },
+
+  getById: async (id: string) => {
+    const response = await authFetch(`/profile/${id}`);
+    return response.json();
+  },
 };
 
 // Documents API
@@ -275,7 +286,18 @@ export const teamAPI = {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    return response.json();
+    
+    const result = await response.json();
+    
+    // If response is not OK, ensure error format is consistent
+    if (!response.ok) {
+      return {
+        error: result.error || 'Request failed',
+        message: result.message || result.error || 'Unknown error'
+      };
+    }
+    
+    return result;
   },
 
   getProposalTeam: async (proposalId: string) => {
@@ -285,6 +307,12 @@ export const teamAPI = {
 
   getMyInvitations: async () => {
     const response = await authFetch('/team/invitations');
+    return response.json();
+  },
+
+  getInvitationByToken: async (token: string) => {
+    // This endpoint should be public (no auth required for email links)
+    const response = await fetch(`${API_BASE_URL}/team/invitations/token/${token}`);
     return response.json();
   },
 
@@ -311,6 +339,37 @@ export const teamAPI = {
   },
 };
 
+// Analytics API
+export const analyticsAPI = {
+  getProposalTimes: async (proposalId?: string) => {
+    const url = proposalId 
+      ? `/analytics/proposal-times?proposalId=${proposalId}`
+      : '/analytics/proposal-times';
+    const response = await authFetch(url);
+    return response.json();
+  },
+
+  getTeamResponses: async () => {
+    const response = await authFetch('/analytics/team-responses');
+    return response.json();
+  },
+
+  trackStageStart: async (proposalId: string, stage: string) => {
+    const response = await authFetch('/analytics/track-stage', {
+      method: 'POST',
+      body: JSON.stringify({ proposalId, stage }),
+    });
+    return response.json();
+  },
+
+  trackStageComplete: async (trackingId: string) => {
+    const response = await authFetch(`/analytics/track-stage/${trackingId}/complete`, {
+      method: 'PUT',
+    });
+    return response.json();
+  },
+};
+
 export default {
   auth: authAPI,
   profile: profileAPI,
@@ -318,4 +377,5 @@ export default {
   rfp: rfpAPI,
   proposals: proposalsAPI,
   team: teamAPI,
+  analytics: analyticsAPI,
 };
