@@ -24,11 +24,33 @@ const FRONTEND_URL = env.FRONTEND_URL;
 app.use(requestLogger);
 app.use(performanceMonitor);
 
-// Middleware
+// Middleware - CORS configuration
+// Allow multiple origins for development and production
+const allowedOrigins = [
+  FRONTEND_URL,
+  'http://localhost:5173', // Local development
+  'http://localhost:3000', // Alternative local port
+].filter(Boolean); // Remove undefined values
+
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`⚠️  CORS: Blocked origin: ${origin}. Allowed origins:`, allowedOrigins);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
+
+// Log CORS configuration on startup
+console.log('🌐 CORS configured for origins:', allowedOrigins);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
