@@ -370,6 +370,37 @@ export const analyticsAPI = {
   },
 };
 
+// Network API
+export const networkAPI = {
+  createConnection: async (data: {
+    contactName: string;
+    contactEmail: string;
+    capabilities?: string[];
+    notes?: string;
+    connectedProfileId?: string;
+    connectionMethod?: string;
+  }) => {
+    const response = await authFetch('/network/connections', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  getUserConnections: async (params?: { search?: string; capability?: string; limit?: number; offset?: number }) => {
+    const query = new URLSearchParams(params as any).toString();
+    const response = await authFetch(`/network/connections${query ? `?${query}` : ''}`);
+    return response.json();
+  },
+
+  deleteConnection: async (id: string) => {
+    const response = await authFetch(`/network/connections/${id}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  },
+};
+
 export default {
   auth: authAPI,
   profile: profileAPI,
@@ -378,4 +409,5 @@ export default {
   proposals: proposalsAPI,
   team: teamAPI,
   analytics: analyticsAPI,
+  network: networkAPI,
 };

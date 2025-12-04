@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { profileAPI } from '../services/api';
 import { UsersIcon, SearchIcon, CodeIcon } from './icons';
+import ProfileDetailModal from './ProfileDetailModal';
 
 interface MarketplaceProfile {
   id: string;
@@ -23,6 +24,7 @@ const MarketplaceView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [industryFilter, setIndustryFilter] = useState<string>('');
   const [availableIndustries, setAvailableIndustries] = useState<string[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
   useEffect(() => {
     loadProfiles();
@@ -241,10 +243,7 @@ const MarketplaceView: React.FC = () => {
                           Profile Strength: {profile.profile_strength}%
                         </div>
                         <button
-                          onClick={() => {
-                            // TODO: Navigate to profile detail or open connection modal
-                            console.log('View profile:', profile.id);
-                          }}
+                          onClick={() => setSelectedProfileId(profile.id)}
                           className="text-sm font-medium text-red-600 hover:text-red-700"
                         >
                           View Profile
@@ -257,6 +256,14 @@ const MarketplaceView: React.FC = () => {
             </>
           )}
         </>
+      )}
+
+      {/* Profile Detail Modal */}
+      {selectedProfileId && (
+        <ProfileDetailModal
+          profileId={selectedProfileId}
+          onClose={() => setSelectedProfileId(null)}
+        />
       )}
     </div>
   );

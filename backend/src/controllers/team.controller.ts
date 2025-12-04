@@ -458,10 +458,7 @@ export const getMyInvitations = async (req: Request, res: Response): Promise<voi
           id,
           title,
           status,
-          user_id,
-          company_profiles:user_id (
-            company_name
-          )
+          user_id
         )
       `)
       .eq('member_email', userEmail)
