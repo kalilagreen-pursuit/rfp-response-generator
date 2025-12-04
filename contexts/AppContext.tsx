@@ -227,7 +227,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 } else {
                     // Create new - we need to handle this differently since backend expects rfpId
                     // For now, we'll create a proposal directly with the content
-                    const response = await fetch('http://localhost:3001/api/proposals', {
+                    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/proposals`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
