@@ -1,4 +1,9 @@
+// Debug: Log environment variable
+console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('All env vars:', import.meta.env);
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+console.log('Using API_BASE_URL:', API_BASE_URL);
 
 // Token management
 let authToken: string | null = localStorage.getItem('authToken');
