@@ -32,6 +32,12 @@ CREATE INDEX IF NOT EXISTS idx_connection_requests_requester_profile_id ON publi
 -- Enable RLS
 ALTER TABLE public.connection_requests ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist (for idempotent migration)
+DROP POLICY IF EXISTS "Requester can view own sent requests" ON public.connection_requests;
+DROP POLICY IF EXISTS "Recipient can view own received requests" ON public.connection_requests;
+DROP POLICY IF EXISTS "Requester can create requests" ON public.connection_requests;
+DROP POLICY IF EXISTS "Recipient can respond to requests" ON public.connection_requests;
+
 -- Requester can view their own sent requests
 CREATE POLICY "Requester can view own sent requests"
   ON public.connection_requests
