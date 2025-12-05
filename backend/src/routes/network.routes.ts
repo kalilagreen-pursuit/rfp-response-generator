@@ -32,16 +32,7 @@ router.get('/connections', authenticate, getUserConnections);
 // POST /api/network/connections - Create new connection
 router.post('/connections', authenticate, createConnection);
 
-// GET /api/network/connections/:id - Get connection by ID
-router.get('/connections/:id', authenticate, getConnectionById);
-
-// PUT /api/network/connections/:id - Update connection
-router.put('/connections/:id', authenticate, updateConnection);
-
-// DELETE /api/network/connections/:id - Delete connection
-router.delete('/connections/:id', authenticate, deleteConnection);
-
-// Connection Requests Routes
+// Connection Requests Routes (must come before /connections/:id to avoid route conflicts)
 // POST /api/network/connection-requests - Send connection request
 router.post('/connection-requests', authenticate, sendConnectionRequest);
 
@@ -53,5 +44,14 @@ router.post('/connection-requests/:id/accept', authenticate, acceptConnectionReq
 
 // POST /api/network/connection-requests/:id/decline - Decline connection request
 router.post('/connection-requests/:id/decline', authenticate, declineConnectionRequest);
+
+// GET /api/network/connections/:id - Get connection by ID (must come after connection-requests)
+router.get('/connections/:id', authenticate, getConnectionById);
+
+// PUT /api/network/connections/:id - Update connection
+router.put('/connections/:id', authenticate, updateConnection);
+
+// DELETE /api/network/connections/:id - Delete connection
+router.delete('/connections/:id', authenticate, deleteConnection);
 
 export default router;

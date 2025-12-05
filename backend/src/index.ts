@@ -125,7 +125,11 @@ app.get('/api', (req, res) => {
         updateConnection: 'PUT /api/network/connections/:id',
         deleteConnection: 'DELETE /api/network/connections/:id',
         searchByCapability: 'GET /api/network/connections/search/capabilities',
-        stats: 'GET /api/network/connections/stats'
+        stats: 'GET /api/network/connections/stats',
+        sendConnectionRequest: 'POST /api/network/connection-requests',
+        getMyConnectionRequests: 'GET /api/network/connection-requests',
+        acceptConnectionRequest: 'POST /api/network/connection-requests/:id/accept',
+        declineConnectionRequest: 'POST /api/network/connection-requests/:id/decline'
       },
       team: {
         invite: 'POST /api/team/invite',
