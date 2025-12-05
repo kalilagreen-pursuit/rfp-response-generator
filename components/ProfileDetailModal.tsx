@@ -70,18 +70,16 @@ const ProfileDetailModal: React.FC<ProfileDetailModalProps> = ({ profileId, onCl
     setError('');
 
     try {
-      const response = await networkAPI.createConnection({
-        contactName: profile.company_name,
-        contactEmail: profile.contact_info?.email || '',
-        capabilities: profile.capabilities,
-        notes: `Connection request from marketplace profile`,
-        connectedProfileId: profile.id,
-        connectionMethod: 'marketplace'
+      const response = await networkAPI.sendConnectionRequest({
+        recipientProfileId: profile.id,
+        message: `Connection request from marketplace profile`
       });
 
       if (response.error) {
-        if (response.error === 'Connection exists') {
-          setError('You are already connected with this company');
+        if (response.error === 'Connection exists' || response.error === 'Request already exists') {
+          setError('You have already sent a connection request to this company');
+        } else if (response.error === 'Invalid request') {
+          setError('You cannot send a connection request to yourself');
         } else {
           setError(response.message || 'Failed to send connection request');
         }

@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import { supabase } from '../utils/supabase.js';
+import {
+  sendConnectionRequestEmail
+} from '../services/email.service.js';
 
 /**
  * Get all network connections for the authenticated user
@@ -442,6 +445,443 @@ export const getConnectionStats = async (req: Request, res: Response): Promise<v
     });
   } catch (error) {
     console.error('Get connection stats error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * Send a connection request to another user
+ * POST /api/network/connection-requests
+ */
+export const sendConnectionRequest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated'
+      });
+      return;
+    }
+
+    const {
+      recipientProfileId,
+      message
+    } = req.body;
+
+    // Validation
+    if (!recipientProfileId) {
+      res.status(400).json({
+        error: 'Missing required fields',
+        message: 'Recipient profile ID is required'
+      });
+      return;
+    }
+
+    // Get requester's profile
+    const { data: requesterProfile, error: requesterProfileError } = await supabase
+      .from('company_profiles')
+      .select('id, company_name, user_id')
+      .eq('user_id', req.userId)
+      .single();
+
+    if (requesterProfileError || !requesterProfile) {
+      res.status(404).json({
+        error: 'Profile not found',
+        message: 'You must have a company profile to send connection requests'
+      });
+      return;
+    }
+
+    // Get recipient's profile and user
+    const { data: recipientProfile, error: recipientProfileError } = await supabase
+      .from('company_profiles')
+      .select('id, company_name, user_id, contact_info')
+      .eq('id', recipientProfileId)
+      .single();
+
+    if (recipientProfileError || !recipientProfile) {
+      res.status(404).json({
+        error: 'Profile not found',
+        message: 'Recipient profile does not exist'
+      });
+      return;
+    }
+
+    // Check if user is trying to connect with themselves
+    if (recipientProfile.user_id === req.userId) {
+      res.status(400).json({
+        error: 'Invalid request',
+        message: 'You cannot send a connection request to yourself'
+      });
+      return;
+    }
+
+    // Check if a pending request already exists
+    const { data: existingRequest } = await supabase
+      .from('connection_requests')
+      .select('id, status')
+      .eq('requester_id', req.userId)
+      .eq('recipient_profile_id', recipientProfileId)
+      .eq('status', 'pending')
+      .single();
+
+    if (existingRequest) {
+      res.status(409).json({
+        error: 'Request already exists',
+        message: 'You have already sent a connection request to this company'
+      });
+      return;
+    }
+
+    // Check if connection already exists
+    const { data: existingConnection } = await supabase
+      .from('network_connections')
+      .select('id')
+      .eq('user_id', req.userId)
+      .eq('connected_profile_id', recipientProfileId)
+      .single();
+
+    if (existingConnection) {
+      res.status(409).json({
+        error: 'Connection exists',
+        message: 'You are already connected with this company'
+      });
+      return;
+    }
+
+    // Create connection request
+    const { data: connectionRequest, error: insertError } = await supabase
+      .from('connection_requests')
+      .insert({
+        requester_id: req.userId,
+        requester_profile_id: requesterProfile.id,
+        recipient_profile_id: recipientProfileId,
+        recipient_user_id: recipientProfile.user_id,
+        message: message || null,
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    // Get recipient's email from their profile or auth
+    let recipientEmail = '';
+    if (recipientProfile.contact_info && typeof recipientProfile.contact_info === 'object') {
+      recipientEmail = (recipientProfile.contact_info as any).email || '';
+    }
+
+    // If no email in profile, try to get from auth
+    if (!recipientEmail) {
+      const { data: recipientUser } = await supabase.auth.admin.getUserById(recipientProfile.user_id);
+      recipientEmail = recipientUser?.user?.email || '';
+    }
+
+    // Send email notification (non-blocking)
+    if (recipientEmail) {
+      const frontendUrl = process.env.FRONTEND_URL || 'https://rfp-response-generator.vercel.app';
+      const invitationLink = `${frontendUrl}/invitations`;
+
+      sendConnectionRequestEmail({
+        recipientEmail,
+        requesterCompanyName: requesterProfile.company_name,
+        recipientCompanyName: recipientProfile.company_name,
+        message: message || undefined,
+        invitationLink
+      }).catch((err) => {
+        console.error('Failed to send connection request email:', err);
+        // Don't fail the request if email fails
+      });
+    }
+
+    res.status(201).json({
+      message: 'Connection request sent successfully',
+      connectionRequest
+    });
+  } catch (error) {
+    console.error('Send connection request error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * Get connection requests for the authenticated user
+ * GET /api/network/connection-requests
+ */
+export const getMyConnectionRequests = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated'
+      });
+      return;
+    }
+
+    // Get requests where user is the recipient (received requests)
+    const { data: receivedRequests, error: receivedError } = await supabase
+      .from('connection_requests')
+      .select(`
+        id,
+        requester_id,
+        requester_profile_id,
+        recipient_profile_id,
+        message,
+        status,
+        requested_at,
+        responded_at,
+        requester_profile:requester_profile_id (
+          id,
+          company_name,
+          industry,
+          contact_info
+        ),
+        recipient_profile:recipient_profile_id (
+          id,
+          company_name
+        )
+      `)
+      .eq('recipient_user_id', req.userId)
+      .order('requested_at', { ascending: false });
+
+    if (receivedError) throw receivedError;
+
+    // Get requests where user is the requester (sent requests)
+    const { data: sentRequests, error: sentError } = await supabase
+      .from('connection_requests')
+      .select(`
+        id,
+        requester_id,
+        requester_profile_id,
+        recipient_profile_id,
+        message,
+        status,
+        requested_at,
+        responded_at,
+        requester_profile:requester_profile_id (
+          id,
+          company_name
+        ),
+        recipient_profile:recipient_profile_id (
+          id,
+          company_name,
+          industry,
+          contact_info
+        )
+      `)
+      .eq('requester_id', req.userId)
+      .order('requested_at', { ascending: false });
+
+    if (sentError) throw sentError;
+
+    res.json({
+      receivedRequests: receivedRequests || [],
+      sentRequests: sentRequests || []
+    });
+  } catch (error) {
+    console.error('Get my connection requests error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * Accept a connection request
+ * POST /api/network/connection-requests/:id/accept
+ */
+export const acceptConnectionRequest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated'
+      });
+      return;
+    }
+
+    const { id } = req.params;
+
+    // Get the connection request
+    const { data: connectionRequest, error: requestError } = await supabase
+      .from('connection_requests')
+      .select(`
+        *,
+        requester_profile:requester_profile_id (
+          id,
+          company_name,
+          contact_info
+        ),
+        recipient_profile:recipient_profile_id (
+          id,
+          company_name,
+          contact_info
+        )
+      `)
+      .eq('id', id)
+      .eq('recipient_user_id', req.userId)
+      .single();
+
+    if (requestError || !connectionRequest) {
+      res.status(404).json({
+        error: 'Request not found',
+        message: 'Connection request not found or access denied'
+      });
+      return;
+    }
+
+    if (connectionRequest.status !== 'pending') {
+      res.status(400).json({
+        error: 'Invalid status',
+        message: 'This connection request has already been responded to'
+      });
+      return;
+    }
+
+    // Update request status
+    const { error: updateError } = await supabase
+      .from('connection_requests')
+      .update({
+        status: 'accepted',
+        responded_at: new Date().toISOString()
+      })
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    // Create bidirectional connections in network_connections
+    const requesterProfile = connectionRequest.requester_profile as any;
+    const recipientProfile = connectionRequest.recipient_profile as any;
+
+    // Connection for requester (requester -> recipient)
+    const requesterContactInfo = requesterProfile?.contact_info || {};
+    const requesterEmail = requesterContactInfo.email || '';
+    const requesterCapabilities = requesterContactInfo.capabilities || [];
+
+    const { error: requesterConnError } = await supabase
+      .from('network_connections')
+      .insert({
+        user_id: connectionRequest.requester_id,
+        connected_profile_id: connectionRequest.recipient_profile_id,
+        contact_name: recipientProfile?.company_name || '',
+        contact_email: '', // Will be populated from profile if available
+        capabilities: recipientProfile?.contact_info?.capabilities || [],
+        notes: 'Accepted connection request from marketplace',
+        connection_method: 'marketplace'
+      });
+
+    if (requesterConnError) {
+      console.error('Error creating requester connection:', requesterConnError);
+      // Continue anyway - connection request is already accepted
+    }
+
+    // Connection for recipient (recipient -> requester)
+    const recipientContactInfo = recipientProfile?.contact_info || {};
+    const recipientEmail = recipientContactInfo.email || '';
+    const recipientCapabilities = recipientContactInfo.capabilities || [];
+
+    const { error: recipientConnError } = await supabase
+      .from('network_connections')
+      .insert({
+        user_id: connectionRequest.recipient_user_id,
+        connected_profile_id: connectionRequest.requester_profile_id,
+        contact_name: requesterProfile?.company_name || '',
+        contact_email: requesterEmail,
+        capabilities: requesterCapabilities,
+        notes: 'Accepted connection request from marketplace',
+        connection_method: 'marketplace'
+      });
+
+    if (recipientConnError) {
+      console.error('Error creating recipient connection:', recipientConnError);
+      // Continue anyway - connection request is already accepted
+    }
+
+    res.json({
+      message: 'Connection request accepted successfully',
+      connectionRequest: {
+        ...connectionRequest,
+        status: 'accepted',
+        responded_at: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Accept connection request error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * Decline a connection request
+ * POST /api/network/connection-requests/:id/decline
+ */
+export const declineConnectionRequest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated'
+      });
+      return;
+    }
+
+    const { id } = req.params;
+
+    // Get the connection request
+    const { data: connectionRequest, error: requestError } = await supabase
+      .from('connection_requests')
+      .select('*')
+      .eq('id', id)
+      .eq('recipient_user_id', req.userId)
+      .single();
+
+    if (requestError || !connectionRequest) {
+      res.status(404).json({
+        error: 'Request not found',
+        message: 'Connection request not found or access denied'
+      });
+      return;
+    }
+
+    if (connectionRequest.status !== 'pending') {
+      res.status(400).json({
+        error: 'Invalid status',
+        message: 'This connection request has already been responded to'
+      });
+      return;
+    }
+
+    // Update request status
+    const { error: updateError } = await supabase
+      .from('connection_requests')
+      .update({
+        status: 'declined',
+        responded_at: new Date().toISOString()
+      })
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    res.json({
+      message: 'Connection request declined successfully',
+      connectionRequest: {
+        ...connectionRequest,
+        status: 'declined',
+        responded_at: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Decline connection request error:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'

@@ -6,7 +6,11 @@ import {
   updateConnection,
   deleteConnection,
   searchByCapability,
-  getConnectionStats
+  getConnectionStats,
+  sendConnectionRequest,
+  getMyConnectionRequests,
+  acceptConnectionRequest,
+  declineConnectionRequest
 } from '../controllers/network.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 
@@ -36,5 +40,18 @@ router.put('/connections/:id', authenticate, updateConnection);
 
 // DELETE /api/network/connections/:id - Delete connection
 router.delete('/connections/:id', authenticate, deleteConnection);
+
+// Connection Requests Routes
+// POST /api/network/connection-requests - Send connection request
+router.post('/connection-requests', authenticate, sendConnectionRequest);
+
+// GET /api/network/connection-requests - Get connection requests for current user
+router.get('/connection-requests', authenticate, getMyConnectionRequests);
+
+// POST /api/network/connection-requests/:id/accept - Accept connection request
+router.post('/connection-requests/:id/accept', authenticate, acceptConnectionRequest);
+
+// POST /api/network/connection-requests/:id/decline - Decline connection request
+router.post('/connection-requests/:id/decline', authenticate, declineConnectionRequest);
 
 export default router;

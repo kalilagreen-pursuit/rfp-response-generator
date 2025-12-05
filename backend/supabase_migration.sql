@@ -124,6 +124,29 @@ CREATE INDEX idx_network_connections_user_id ON public.network_connections(user_
 CREATE INDEX idx_network_connections_connected_profile_id ON public.network_connections(connected_profile_id);
 
 -- ============================================================================
+-- 6.1. CONNECTION REQUESTS
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.connection_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  requester_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  requester_profile_id UUID REFERENCES public.company_profiles(id) ON DELETE SET NULL,
+  recipient_profile_id UUID NOT NULL REFERENCES public.company_profiles(id) ON DELETE CASCADE,
+  recipient_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  message TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
+  requested_at TIMESTAMPTZ DEFAULT NOW(),
+  responded_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for faster lookups
+CREATE INDEX idx_connection_requests_requester_id ON public.connection_requests(requester_id);
+CREATE INDEX idx_connection_requests_recipient_user_id ON public.connection_requests(recipient_user_id);
+CREATE INDEX idx_connection_requests_status ON public.connection_requests(status);
+CREATE INDEX idx_connection_requests_recipient_profile_id ON public.connection_requests(recipient_profile_id);
+CREATE INDEX idx_connection_requests_requester_profile_id ON public.connection_requests(requester_profile_id);
+
+-- ============================================================================
 -- 7. PROPOSAL TIME TRACKING (Analytics)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.proposal_time_tracking (
@@ -174,6 +197,7 @@ ALTER TABLE public.rfp_uploads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.proposals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.proposal_team ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.network_connections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.connection_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.proposal_time_tracking ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
@@ -319,6 +343,35 @@ CREATE POLICY "Users can manage own connections"
   FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- ============================================================================
+-- CONNECTION REQUESTS POLICIES
+-- ============================================================================
+
+-- Requester can view their own sent requests
+CREATE POLICY "Requester can view own sent requests"
+  ON public.connection_requests
+  FOR SELECT
+  USING (auth.uid() = requester_id);
+
+-- Recipient can view requests sent to them
+CREATE POLICY "Recipient can view own received requests"
+  ON public.connection_requests
+  FOR SELECT
+  USING (auth.uid() = recipient_user_id);
+
+-- Requester can create requests
+CREATE POLICY "Requester can create requests"
+  ON public.connection_requests
+  FOR INSERT
+  WITH CHECK (auth.uid() = requester_id);
+
+-- Recipient can update (accept/decline) requests sent to them
+CREATE POLICY "Recipient can respond to requests"
+  ON public.connection_requests
+  FOR UPDATE
+  USING (auth.uid() = recipient_user_id)
+  WITH CHECK (auth.uid() = recipient_user_id);
 
 -- ============================================================================
 -- PROPOSAL TIME TRACKING POLICIES

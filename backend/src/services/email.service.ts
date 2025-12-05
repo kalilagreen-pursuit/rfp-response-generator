@@ -45,6 +45,14 @@ interface DeclineNotificationData {
   proposalTitle: string;
 }
 
+interface ConnectionRequestEmailData {
+  recipientEmail: string;
+  requesterCompanyName: string;
+  recipientCompanyName: string;
+  message?: string;
+  invitationLink: string;
+}
+
 /**
  * Generate HTML email template for team invitation
  */
@@ -489,12 +497,215 @@ export const sendDeclineNotification = async (data: DeclineNotificationData): Pr
   }
 };
 
+/**
+ * Generate HTML email template for connection request
+ */
+export const generateConnectionRequestEmailHTML = (data: ConnectionRequestEmailData): string => {
+  const messageHTML = data.message
+    ? `
+    <div style="background-color: #f9fafb; border-left: 4px solid #dc2626; padding: 16px; margin: 24px 0; border-radius: 4px;">
+      <p style="margin: 0; font-size: 14px; color: #6b7280; font-style: italic;">
+        "${data.message}"
+      </p>
+    </div>
+    `
+    : '';
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connection Request</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 0; padding: 40px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+
+          <tr>
+            <td style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); padding: 32px 40px; text-align: center;">
+              <h1 style="margin: 0; font-size: 28px; font-weight: bold; color: #ffffff;">
+                New Connection Request
+              </h1>
+              <p style="margin: 8px 0 0 0; font-size: 16px; color: #fecaca;">
+                Marketplace Connection
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 24px 0; font-size: 16px; color: #111827; line-height: 1.6;">
+                Hello,
+              </p>
+
+              <p style="margin: 0 0 24px 0; font-size: 16px; color: #111827; line-height: 1.6;">
+                <strong>${data.requesterCompanyName}</strong> wants to connect with <strong>${data.recipientCompanyName}</strong> on the RFP Response Generator marketplace.
+              </p>
+
+              ${messageHTML}
+
+              <div style="background-color: #f9fafb; border-radius: 8px; padding: 24px; margin: 24px 0;">
+                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827; font-weight: 600;">
+                  Connection Request Details
+                </h2>
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="padding: 16px 0; border-bottom: 1px solid #e5e7eb;">
+                      <p style="margin: 0; font-size: 14px; color: #6b7280;">From:</p>
+                      <p style="margin: 4px 0 0 0; font-size: 16px; color: #111827; font-weight: 600;">
+                        ${data.requesterCompanyName}
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 16px 0 0 0;">
+                      <p style="margin: 0; font-size: 14px; color: #6b7280;">To:</p>
+                      <p style="margin: 4px 0 0 0; font-size: 16px; color: #111827; font-weight: 600;">
+                        ${data.recipientCompanyName}
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 32px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${data.invitationLink}" style="display: inline-block; padding: 14px 32px; background-color: #dc2626; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.4);">
+                      View & Respond to Request
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280; line-height: 1.6; text-align: center;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href="${data.invitationLink}" style="color: #dc2626; word-break: break-all;">
+                  ${data.invitationLink}
+                </a>
+              </p>
+
+              <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+                <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #111827; font-weight: 600;">
+                  What happens next?
+                </h3>
+                <ul style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.8;">
+                  <li>Review the connection request in your invitations page</li>
+                  <li>Accept to create a bidirectional connection</li>
+                  <li>Decline if you prefer not to connect at this time</li>
+                  <li>Once accepted, both companies will appear in each other's network</li>
+                </ul>
+              </div>
+
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color: #f9fafb; padding: 24px 40px; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+                This connection request was sent by ${data.requesterCompanyName}
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                © ${new Date().getFullYear()} RFP Response Generator. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+};
+
+/**
+ * Generate plain text version of connection request email
+ */
+export const generateConnectionRequestEmailText = (data: ConnectionRequestEmailData): string => {
+  const messageText = data.message ? `\nMessage:\n"${data.message}"\n` : '';
+
+  return `
+New Connection Request
+
+Hello,
+
+${data.requesterCompanyName} wants to connect with ${data.recipientCompanyName} on the RFP Response Generator marketplace.
+${messageText}
+CONNECTION REQUEST DETAILS
+==========================
+From: ${data.requesterCompanyName}
+To: ${data.recipientCompanyName}
+
+VIEW & RESPOND TO REQUEST
+=========================
+${data.invitationLink}
+
+WHAT HAPPENS NEXT?
+==================
+1. Review the connection request in your invitations page
+2. Accept to create a bidirectional connection
+3. Decline if you prefer not to connect at this time
+4. Once accepted, both companies will appear in each other's network
+
+---
+This connection request was sent by ${data.requesterCompanyName}
+© ${new Date().getFullYear()} RFP Response Generator. All rights reserved.
+  `.trim();
+};
+
+/**
+ * Send connection request email
+ */
+export const sendConnectionRequestEmail = async (data: ConnectionRequestEmailData): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const client = getResendClient();
+    if (!client) {
+      console.warn('RESEND_API_KEY not configured, skipping email send');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const htmlContent = generateConnectionRequestEmailHTML(data);
+    const textContent = generateConnectionRequestEmailText(data);
+
+    const result = await client.emails.send({
+      from: FROM_EMAIL,
+      to: data.recipientEmail,
+      subject: `${data.requesterCompanyName} wants to connect with you`,
+      html: htmlContent,
+      text: textContent,
+    });
+
+    if (result.error) {
+      console.error('Resend API error:', result.error);
+      return { success: false, error: result.error.message };
+    }
+
+    console.log('Connection request email sent successfully:', result.data?.id);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to send connection request email:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
+
 export default {
   generateInvitationEmailHTML,
   generateInvitationEmailText,
   generateAcceptanceNotificationHTML,
   generateDeclineNotificationHTML,
+  generateConnectionRequestEmailHTML,
+  generateConnectionRequestEmailText,
   sendInvitationEmail,
   sendAcceptanceNotification,
   sendDeclineNotification,
+  sendConnectionRequestEmail,
 };

@@ -404,6 +404,37 @@ export const networkAPI = {
     });
     return response.json();
   },
+
+  // Connection Requests
+  sendConnectionRequest: async (data: {
+    recipientProfileId: string;
+    message?: string;
+  }) => {
+    const response = await authFetch('/network/connection-requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  getMyConnectionRequests: async () => {
+    const response = await authFetch('/network/connection-requests');
+    return response.json();
+  },
+
+  acceptConnectionRequest: async (id: string) => {
+    const response = await authFetch(`/network/connection-requests/${id}/accept`, {
+      method: 'POST',
+    });
+    return response.json();
+  },
+
+  declineConnectionRequest: async (id: string) => {
+    const response = await authFetch(`/network/connection-requests/${id}/decline`, {
+      method: 'POST',
+    });
+    return response.json();
+  },
 };
 
 export default {
