@@ -25,6 +25,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.81.1",
+    "@types/cors": "^2.8.19",
     "@types/multer": "^2.0.0",
     "@types/pdfkit": "^0.17.3",
     "cors": "^2.8.5",
@@ -40,7 +41,6 @@
     "resend": "^6.5.2"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "@types/node": "^24.10.1",
     "tsx": "^4.20.6",
