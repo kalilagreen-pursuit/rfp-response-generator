@@ -603,9 +603,18 @@ export const sendConnectionRequest = async (req: Request, res: Response): Promis
     });
   } catch (error) {
     console.error('Send connection request error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = error && typeof error === 'object' && 'code' in error 
+      ? { code: (error as any).code, details: (error as any).details, hint: (error as any).hint }
+      : {};
+    
+    console.error('Full error object:', error);
+    console.error('Error details:', errorDetails);
+    
     res.status(500).json({
       error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: errorMessage,
+      ...errorDetails
     });
   }
 };

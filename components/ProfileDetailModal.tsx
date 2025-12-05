@@ -70,18 +70,24 @@ const ProfileDetailModal: React.FC<ProfileDetailModalProps> = ({ profileId, onCl
     setError('');
 
     try {
+      console.log('Sending connection request to profile:', profile.id);
       const response = await networkAPI.sendConnectionRequest({
         recipientProfileId: profile.id,
         message: `Connection request from marketplace profile`
       });
 
+      console.log('Connection request response:', response);
+
       if (response.error) {
+        console.error('Connection request error:', response);
         if (response.error === 'Connection exists' || response.error === 'Request already exists') {
           setError('You have already sent a connection request to this company');
         } else if (response.error === 'Invalid request') {
           setError('You cannot send a connection request to yourself');
+        } else if (response.error === 'Not found') {
+          setError('The connection request endpoint is not available. Please check if the backend has been deployed.');
         } else {
-          setError(response.message || 'Failed to send connection request');
+          setError(response.message || response.error || 'Failed to send connection request');
         }
       } else {
         setConnectionSuccess(true);
@@ -90,7 +96,13 @@ const ProfileDetailModal: React.FC<ProfileDetailModalProps> = ({ profileId, onCl
         }, 2000);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to send connection request');
+      console.error('Connection request exception:', err);
+      console.error('Error details:', {
+        message: err.message,
+        stack: err.stack,
+        response: err.response
+      });
+      setError(err.message || 'Failed to send connection request. Check console for details.');
     } finally {
       setIsConnecting(false);
     }
