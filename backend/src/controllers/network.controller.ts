@@ -650,7 +650,16 @@ export const getMyConnectionRequests = async (req: Request, res: Response): Prom
       .eq('recipient_user_id', req.userId)
       .order('requested_at', { ascending: false });
 
-    if (receivedError) throw receivedError;
+    if (receivedError) {
+      console.error('Error fetching received connection requests:', receivedError);
+      console.error('Error details:', {
+        code: receivedError.code,
+        message: receivedError.message,
+        details: receivedError.details,
+        hint: receivedError.hint
+      });
+      throw receivedError;
+    }
 
     // Get requests where user is the requester (sent requests)
     const { data: sentRequests, error: sentError } = await supabase
@@ -678,7 +687,16 @@ export const getMyConnectionRequests = async (req: Request, res: Response): Prom
       .eq('requester_id', req.userId)
       .order('requested_at', { ascending: false });
 
-    if (sentError) throw sentError;
+    if (sentError) {
+      console.error('Error fetching sent connection requests:', sentError);
+      console.error('Error details:', {
+        code: sentError.code,
+        message: sentError.message,
+        details: sentError.details,
+        hint: sentError.hint
+      });
+      throw sentError;
+    }
 
     res.json({
       receivedRequests: receivedRequests || [],
@@ -686,9 +704,18 @@ export const getMyConnectionRequests = async (req: Request, res: Response): Prom
     });
   } catch (error) {
     console.error('Get my connection requests error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = error && typeof error === 'object' && 'code' in error 
+      ? { code: (error as any).code, details: (error as any).details, hint: (error as any).hint }
+      : {};
+    
+    console.error('Full error object:', error);
+    console.error('Error details:', errorDetails);
+    
     res.status(500).json({
       error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: errorMessage,
+      ...errorDetails
     });
   }
 };

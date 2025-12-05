@@ -88,8 +88,12 @@ const MyInvitationsView: React.FC = () => {
     try {
       const response = await networkAPI.getMyConnectionRequests();
 
+      console.log('Connection requests API response:', response);
+
       if (response.error) {
-        setError(response.message || 'Failed to load connection requests');
+        const errorMessage = response.message || response.error || 'Failed to load connection requests';
+        console.error('Connection requests API error:', response);
+        setError(errorMessage);
       } else {
         // Debug logging
         console.log('Connection requests response:', response);
@@ -116,7 +120,12 @@ const MyInvitationsView: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Error loading connection requests:', err);
-      setError(err.message || 'Failed to load connection requests');
+      console.error('Error details:', {
+        message: err.message,
+        stack: err.stack,
+        response: err.response
+      });
+      setError(err.message || 'Failed to load connection requests. Check console for details.');
     } finally {
       setIsLoadingConnections(false);
     }
