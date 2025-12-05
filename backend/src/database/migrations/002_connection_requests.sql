@@ -32,36 +32,62 @@ CREATE INDEX IF NOT EXISTS idx_connection_requests_requester_profile_id ON publi
 -- Enable RLS
 ALTER TABLE public.connection_requests ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies if they exist (for idempotent migration)
-DROP POLICY IF EXISTS "Requester can view own sent requests" ON public.connection_requests;
-DROP POLICY IF EXISTS "Recipient can view own received requests" ON public.connection_requests;
-DROP POLICY IF EXISTS "Requester can create requests" ON public.connection_requests;
-DROP POLICY IF EXISTS "Recipient can respond to requests" ON public.connection_requests;
+-- Create policies only if they don't exist (using DO block to avoid DROP statements)
+DO $$
+BEGIN
+  -- Requester can view their own sent requests
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' 
+    AND tablename = 'connection_requests' 
+    AND policyname = 'Requester can view own sent requests'
+  ) THEN
+    CREATE POLICY "Requester can view own sent requests"
+      ON public.connection_requests
+      FOR SELECT
+      USING (auth.uid() = requester_id);
+  END IF;
 
--- Requester can view their own sent requests
-CREATE POLICY "Requester can view own sent requests"
-  ON public.connection_requests
-  FOR SELECT
-  USING (auth.uid() = requester_id);
+  -- Recipient can view requests sent to them
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' 
+    AND tablename = 'connection_requests' 
+    AND policyname = 'Recipient can view own received requests'
+  ) THEN
+    CREATE POLICY "Recipient can view own received requests"
+      ON public.connection_requests
+      FOR SELECT
+      USING (auth.uid() = recipient_user_id);
+  END IF;
 
--- Recipient can view requests sent to them
-CREATE POLICY "Recipient can view own received requests"
-  ON public.connection_requests
-  FOR SELECT
-  USING (auth.uid() = recipient_user_id);
+  -- Requester can create requests
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' 
+    AND tablename = 'connection_requests' 
+    AND policyname = 'Requester can create requests'
+  ) THEN
+    CREATE POLICY "Requester can create requests"
+      ON public.connection_requests
+      FOR INSERT
+      WITH CHECK (auth.uid() = requester_id);
+  END IF;
 
--- Requester can create requests
-CREATE POLICY "Requester can create requests"
-  ON public.connection_requests
-  FOR INSERT
-  WITH CHECK (auth.uid() = requester_id);
-
--- Recipient can update (accept/decline) requests sent to them
-CREATE POLICY "Recipient can respond to requests"
-  ON public.connection_requests
-  FOR UPDATE
-  USING (auth.uid() = recipient_user_id)
-  WITH CHECK (auth.uid() = recipient_user_id);
+  -- Recipient can update (accept/decline) requests sent to them
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' 
+    AND tablename = 'connection_requests' 
+    AND policyname = 'Recipient can respond to requests'
+  ) THEN
+    CREATE POLICY "Recipient can respond to requests"
+      ON public.connection_requests
+      FOR UPDATE
+      USING (auth.uid() = recipient_user_id)
+      WITH CHECK (auth.uid() = recipient_user_id);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- COMMENTS
