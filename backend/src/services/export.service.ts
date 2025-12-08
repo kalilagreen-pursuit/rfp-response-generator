@@ -13,14 +13,10 @@ import {
 } from 'docx';
 import PDFDocument from 'pdfkit';
 
-// Brand colors matching Liceria Corporate style
+// Liceria Corporate branding colors
 const COLORS = {
-  primary: '#4A5859',      // Dark teal/gray
-  accent: '#B8A88A',       // Muted gold/tan
-  text: '#333333',         // Dark gray
-  lightGray: '#666666',    // Secondary text
-  tableHeader: '#3A4849',  // Darker for table headers
-  tableAlt: '#F5F5F5',     // Light gray for alternating rows
+  primary: '#4A5859',      // Dark Teal - Primary text and headers
+  accent: '#B8A88A',       // Gold/Tan - Accent color for secondary elements
 };
 
 interface ProposalContent {
@@ -200,217 +196,323 @@ export async function generateDocx(
 }
 
 /**
- * Render Investment Estimate section with professional formatting
+ * Render Investment Estimate section matching template exactly
  */
-function renderInvestmentEstimate(doc: any, investmentData: any, pageWidth: number) {
+function renderInvestmentEstimate(
+  doc: any,
+  investmentData: any,
+  pageWidth: number,
+  companyName?: string,
+  dateGenerated?: string
+) {
   // Extract investment range
-  const low = investmentData.low || 0;
-  const high = investmentData.high || 0;
+  const low = investmentData.low || investmentData.lowCost || 0;
+  const high = investmentData.high || investmentData.highCost || 0;
   const breakdown = investmentData.breakdown || [];
 
-  // Highlighted total range
-  const boxY = doc.y;
-  doc.rect(doc.page.margins.left, boxY, pageWidth, 60)
-    .fill(COLORS.accent)
-    .stroke();
+  // Draw tan color block for investment range
+  const blockHeight = 100;
+  const blockStartY = doc.y;
+  doc.rect(doc.page.margins.left, blockStartY, pageWidth, blockHeight)
+     .fillColor(COLORS.accent)
+     .fill();
 
-  doc.fontSize(12).fillColor('#FFFFFF').font('Helvetica');
-  doc.text('Total Investment Range', doc.page.margins.left + 20, boxY + 15);
-  doc.fontSize(20).font('Helvetica-Bold');
-  doc.text(
-    `$${low.toLocaleString()} - $${high.toLocaleString()}`,
-    doc.page.margins.left + 20,
-    boxY + 32
-  );
+  // Total Investment Range heading (white text on tan background)
+  doc.fontSize(14).fillColor('#FFFFFF').font('Helvetica');
+  doc.text('Total Investment Range', doc.page.margins.left + 20, blockStartY + 20, {
+    align: 'left'
+  });
 
-  doc.moveDown(5);
+  // Investment amount - 28pt bold white text
+  doc.fontSize(28).fillColor('#FFFFFF').font('Helvetica-Bold');
+  doc.text(`$${low.toLocaleString()} - $${high.toLocaleString()}`, doc.page.margins.left + 20, blockStartY + 45, {
+    align: 'left'
+  });
 
-  // Introductory paragraph
-  doc.fontSize(11).fillColor(COLORS.text).font('Helvetica');
+  // Move past the color block
+  doc.y = blockStartY + blockHeight + 20;
+
+  // Explanation paragraph
+  doc.fontSize(11).fillColor(COLORS.primary).font('Helvetica');
   doc.text(
     'This investment estimate reflects a comprehensive analysis of project requirements, resource allocation, and timeline considerations. The range accounts for varying levels of complexity and potential scope adjustments during implementation.',
     {
       align: 'left',
+      width: pageWidth,
       lineGap: 5
     }
   );
-  doc.moveDown(1.5);
+  doc.moveDown(0.25); // 0.3 inch = 21.6pt, approximately 0.25 inches
 
-  // Cost breakdown
+  // Cost Breakdown heading
+  doc.fontSize(14).fillColor(COLORS.primary).font('Helvetica-Bold');
+  doc.text('Cost Breakdown', { align: 'left' });
+  doc.moveDown(0.14); // 0.1 inch = 7.2pt
+
+  // Cost breakdown table (no borders, no background colors)
   if (breakdown.length > 0) {
-    doc.fontSize(14).fillColor(COLORS.primary).font('Helvetica-Bold');
-    doc.text('Cost Breakdown', { align: 'left' });
-    doc.moveDown(1);
+    const tableStartY = doc.y;
+    const rowHeight = 25;
+    let currentY = tableStartY;
 
-    breakdown.forEach((item: any, index: number) => {
-      const component = item.component || 'Component';
-      const lowCost = item.lowCost || 0;
-      const highCost = item.highCost || 0;
-      const description = item.description || '';
+    // Table header
+    doc.fontSize(11).fillColor(COLORS.primary).font('Helvetica-Bold');
+    doc.text('Category', doc.page.margins.left, currentY + 8, { width: 288 }); // 4 inches = 288pt
+    doc.text('Cost Range', doc.page.margins.left + 288, currentY + 8, { width: 144 }); // 2 inches = 144pt
+    currentY += rowHeight;
 
-      // Category name (bold)
-      doc.fontSize(12).fillColor(COLORS.primary).font('Helvetica-Bold');
-      doc.text(`${component}:`, { continued: true });
+    // Table rows
+    breakdown.forEach((item: any) => {
+      const category = item.category || item.component || 'Category';
+      const lowCost = item.low || item.lowCost || 0;
+      const highCost = item.high || item.highCost || 0;
 
-      // Cost range
-      doc.fillColor(COLORS.accent).font('Helvetica');
-      doc.text(` $${lowCost.toLocaleString()} - $${highCost.toLocaleString()}`);
-
-      // Description if available
-      if (description) {
-        doc.fontSize(10).fillColor(COLORS.lightGray).font('Helvetica');
-        doc.text(description, {
-          indent: 20,
-          lineGap: 3
-        });
+      // Check for page break
+      if (currentY + rowHeight > doc.page.height - doc.page.margins.bottom) {
+        doc.addPage();
+        addPageHeader(doc, companyName, dateGenerated, pageWidth);
+        currentY = doc.page.margins.top + 72; // 1 inch from top
+        doc.y = currentY;
       }
 
-      doc.moveDown(0.8);
+      doc.fontSize(11).fillColor(COLORS.primary).font('Helvetica');
+      doc.text(category, doc.page.margins.left, currentY + 8, { width: 288 });
+      doc.text(
+        `$${lowCost.toLocaleString()} - $${highCost.toLocaleString()}`,
+        doc.page.margins.left + 288,
+        currentY + 8,
+        { width: 144 }
+      );
+      currentY += rowHeight;
+    });
+
+    doc.y = currentY;
+  }
+}
+
+/**
+ * Helper to add page header (company name + date)
+ */
+function addPageHeader(doc: any, companyName?: string, dateGenerated?: string, pageWidth?: number) {
+  const pageW = pageWidth || (doc.page.width - doc.page.margins.left - doc.page.margins.right);
+  doc.fontSize(9).fillColor(COLORS.accent).font('Helvetica');
+  if (companyName) {
+    doc.text(companyName, doc.page.margins.left, 36); // 0.5 inches = 36pt
+  }
+  if (dateGenerated) {
+    doc.text(dateGenerated, doc.page.margins.left, 36, {
+      align: 'right',
+      width: pageW
     });
   }
 }
 
 /**
- * Render Resources section with professional table format
+ * Render Resources section matching template exactly
  */
-function renderResources(doc: any, resourcesData: any, pageWidth: number) {
-  const resources = Array.isArray(resourcesData) ? resourcesData : [];
+function renderResources(
+  doc: any,
+  resourcesData: any,
+  pageWidth: number,
+  companyName?: string,
+  dateGenerated?: string
+) {
+  // Handle different data structures
+  let resources: any[] = [];
 
-  if (resources.length === 0) {
-    doc.fontSize(11).fillColor(COLORS.text).font('Helvetica');
+  if (Array.isArray(resourcesData)) {
+    resources = resourcesData;
+  } else if (resourcesData && typeof resourcesData === 'object') {
+    // Try to extract array from common property names
+    resources = resourcesData.resources ||
+                resourcesData.resource ||
+                resourcesData.teamMembers ||
+                resourcesData.team ||
+                [];
+
+    // If still empty, check if the object itself looks like a resource object with nested data
+    if (resources.length === 0 && Object.keys(resourcesData).length > 0) {
+      // Check if it has properties that suggest it contains resource data
+      const possibleArrayKeys = Object.keys(resourcesData).filter(key =>
+        Array.isArray(resourcesData[key]) && resourcesData[key].length > 0
+      );
+
+      if (possibleArrayKeys.length > 0) {
+        // Use the first array we find
+        resources = resourcesData[possibleArrayKeys[0]];
+        console.log(`renderResources - Found resources under key: ${possibleArrayKeys[0]}`);
+      }
+    }
+  }
+
+  // Debug logging
+  console.log('renderResources - resourcesData:', JSON.stringify(resourcesData, null, 2));
+  console.log('renderResources - extracted resources array:', JSON.stringify(resources, null, 2));
+  console.log('renderResources - resources length:', resources.length);
+
+  if (!Array.isArray(resources) || resources.length === 0) {
+    console.log('renderResources - No valid resources array found, showing fallback message');
+    doc.fontSize(11).fillColor(COLORS.primary).font('Helvetica');
     doc.text('Resource allocation will be determined based on project scope and timeline.');
     return;
   }
 
   // Introductory text
-  doc.fontSize(11).fillColor(COLORS.text).font('Helvetica');
+  doc.fontSize(11).fillColor(COLORS.primary).font('Helvetica');
   doc.text(
     'Our proposed team structure leverages experienced professionals to deliver exceptional results:',
-    { align: 'left', lineGap: 5 }
+    { 
+      align: 'left', 
+      width: pageWidth,
+      lineGap: 5 
+    }
   );
-  doc.moveDown(1.5);
+  doc.moveDown(0.17); // 0.2 inch = 14.4pt
 
-  // Table setup with adjusted column widths for better header alignment
-  const tableTop = doc.y;
+  // Table setup with exact column widths from template
+  // Column 1: 2.5 inches (180pt), Column 2: 0.8 inches (57.6pt), Column 3: 1.35 inches (97.2pt), Column 4: 1.35 inches (97.2pt)
   const colWidths = {
-    role: pageWidth * 0.32,
-    hours: pageWidth * 0.13,
-    lowRate: pageWidth * 0.24,
-    highRate: pageWidth * 0.24,
+    role: 180,      // 2.5 inches
+    hours: 58,     // 0.8 inches
+    lowRate: 97,   // 1.35 inches
+    highRate: 97,  // 1.35 inches
   };
-  const rowHeight = 35;
-  let currentY = tableTop;
+  const rowHeight = 25;
+  const tableStartY = doc.y;
+  let currentY = tableStartY;
 
-  // Table header
-  doc.rect(doc.page.margins.left, currentY, pageWidth, rowHeight)
-    .fill(COLORS.tableHeader);
+  console.log('renderResources - Table start Y position:', currentY);
+  console.log('renderResources - Page margins:', doc.page.margins);
 
-  doc.fontSize(10).fillColor('#FFFFFF').font('Helvetica-Bold');
-  let currentX = doc.page.margins.left + 10;
-
-  // Role column
-  doc.text('Role', currentX, currentY + 12, { width: colWidths.role - 10, continued: false });
-  currentX += colWidths.role;
-
-  // Hours column
-  doc.text('Hours', currentX, currentY + 12, { width: colWidths.hours - 10, continued: false });
-  currentX += colWidths.hours;
-
-  // Rate Range (Low) column
-  doc.text('Rate Range (Low)', currentX + 5, currentY + 12, { width: colWidths.lowRate - 15, continued: false });
-  currentX += colWidths.lowRate;
-
-  // Rate Range (High) column - single line
-  doc.text('Rate Range (High)', currentX + 5, currentY + 12, { width: colWidths.highRate - 15, continued: false });
-
+  // Table header (no background color, no borders)
+  doc.fontSize(10).fillColor(COLORS.primary).font('Helvetica-Bold');
+  
+  // Render header using absolute positioning
+  const headerY = currentY + 6; // 6pt padding from top of row
+  doc.text('Role', doc.page.margins.left, headerY, { 
+    width: colWidths.role,
+    continued: false
+  });
+  doc.text('Hours', doc.page.margins.left + colWidths.role, headerY, { 
+    width: colWidths.hours,
+    continued: false
+  });
+  doc.text('Rate Range (Low)', doc.page.margins.left + colWidths.role + colWidths.hours, headerY, { 
+    width: colWidths.lowRate,
+    continued: false
+  });
+  doc.text('Rate Range (High)', doc.page.margins.left + colWidths.role + colWidths.hours + colWidths.lowRate, headerY, { 
+    width: colWidths.highRate,
+    continued: false
+  });
+  
   currentY += rowHeight;
 
-  // Table rows
+  // Table rows (no alternating colors, no borders)
   resources.forEach((resource: any, index: number) => {
     const role = resource.role || 'Team Member';
     const hours = resource.hours || 0;
     const lowRate = resource.lowRate || 0;
     const highRate = resource.highRate || 0;
 
-    // Alternating row colors
-    if (index % 2 === 1) {
-      doc.rect(doc.page.margins.left, currentY, pageWidth, rowHeight)
-        .fill(COLORS.tableAlt);
+    console.log(`renderResources - Processing resource ${index + 1}:`, {
+      role,
+      hours,
+      lowRate,
+      highRate,
+      resource
+    });
+
+    // Check for page break
+    if (currentY + rowHeight > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      addPageHeader(doc, companyName, dateGenerated, pageWidth);
+      currentY = doc.page.margins.top + 72; // 1 inch from top
+      doc.y = currentY;
     }
 
-    doc.fontSize(10).fillColor(COLORS.text).font('Helvetica');
-    currentX = doc.page.margins.left + 10;
-
-    doc.text(role, currentX, currentY + 10, { width: colWidths.role, continued: false });
-    currentX += colWidths.role;
-
-    doc.text(String(hours), currentX, currentY + 10, { width: colWidths.hours, continued: false });
-    currentX += colWidths.hours;
-
-    doc.text(`$${lowRate.toLocaleString()}/hr`, currentX, currentY + 10, { width: colWidths.lowRate, continued: false });
-    currentX += colWidths.lowRate;
-
-    doc.text(`$${highRate.toLocaleString()}/hr`, currentX, currentY + 10, { width: colWidths.highRate, continued: false });
-
+    // Render table row
+    doc.fontSize(10).fillColor(COLORS.primary).font('Helvetica');
+    
+    // Role column
+    doc.text(role, doc.page.margins.left, currentY + 6, { 
+      width: colWidths.role,
+      continued: false
+    });
+    
+    // Hours column
+    doc.text(String(hours), doc.page.margins.left + colWidths.role, currentY + 6, { 
+      width: colWidths.hours,
+      continued: false
+    });
+    
+    // Rate Range (Low) column
+    doc.text(`$${lowRate.toLocaleString()}/hr`, doc.page.margins.left + colWidths.role + colWidths.hours, currentY + 6, { 
+      width: colWidths.lowRate,
+      continued: false
+    });
+    
+    // Rate Range (High) column
+    doc.text(`$${highRate.toLocaleString()}/hr`, doc.page.margins.left + colWidths.role + colWidths.hours + colWidths.lowRate, currentY + 6, { 
+      width: colWidths.highRate,
+      continued: false
+    });
+    
     currentY += rowHeight;
   });
 
-  // Table border
-  doc.rect(doc.page.margins.left, tableTop, pageWidth, currentY - tableTop)
-    .stroke(COLORS.lightGray);
+  // Role Responsibilities section - ALWAYS start on a new page
+  doc.addPage();
+  addPageHeader(doc, companyName, dateGenerated, pageWidth);
+  doc.y = doc.page.margins.top + 72; // 1 inch from top
 
-  // Reset cursor position to left margin for Role Responsibilities section
-  doc.x = doc.page.margins.left;
-  doc.y = currentY + 20;
-
-  // Role Responsibilities section
+  // Role Responsibilities heading
   doc.fontSize(14).fillColor(COLORS.primary).font('Helvetica-Bold');
   doc.text('Role Responsibilities', doc.page.margins.left, doc.y, {
     align: 'left',
     width: pageWidth
   });
-  doc.moveDown(1);
+  doc.moveDown(0.14); // 0.1 inch = 7.2pt
 
-  // Professional role descriptions
-  const roleDescriptions: { [key: string]: string } = {
-    'Project Manager': 'Oversees all project phases from discovery through deployment, manages stakeholder communication with NYC DOC, ensures adherence to timelines and budget, coordinates cross-functional team efforts, and maintains compliance with all regulatory requirements including CJIS and NYC Cyber Command standards.',
-    'Solution Architect': 'Designs the overall system architecture ensuring scalability, security, and integration capabilities with JMS, OMS, and NYS data exchanges. Establishes technical standards, evaluates technology choices, and provides strategic guidance on cloud infrastructure selection and implementation.',
-    'Senior Full-Stack Developer': 'Architects and implements both frontend (React) and backend (Node.js) components, develops secure APIs for system integrations, ensures real-time notification delivery across multiple channels (SMS, email, mobile), and maintains code quality standards throughout the development lifecycle.',
-    'UI/UX Designer': 'Creates intuitive, accessible interfaces compliant with ADA standards and multilingual requirements. Develops wireframes, interactive prototypes, and responsive designs that serve both victims seeking information and DOC administrators managing the system.',
-    'QA Engineer': 'Implements comprehensive testing strategies including functional, integration, security, and performance testing. Conducts rigorous validation of notification accuracy, system reliability, and compliance with security protocols. Manages user acceptance testing and defect resolution.',
-    'DevOps Engineer': 'Establishes CI/CD pipelines for secure deployment, manages cloud infrastructure on AWS/Azure/GCP, implements monitoring and alerting systems, ensures high availability and disaster recovery capabilities, and maintains system performance optimization.',
-    'Security & Compliance Specialist': 'Ensures adherence to CJIS requirements, NYC Cyber Command standards, and data privacy laws. Conducts security audits, implements encryption protocols, manages access controls, and establishes security best practices throughout the development and deployment process.'
-  };
-
+  // Role descriptions
   resources.forEach((resource: any) => {
     const role = resource.role || 'Team Member';
+    const responsibilities = resource.responsibilities ||
+                            resource.description ||
+                            `Responsible for ${role.toLowerCase()} duties and deliverables throughout the project lifecycle. Collaborates with cross-functional teams to ensure quality deliverables and timely project completion.`;
 
-    // Try to get professional description, fall back to provided or generic
-    let responsibilities = roleDescriptions[role] ||
-                          resource.responsibilities ||
-                          resource.description ||
-                          `Responsible for ${role.toLowerCase()} duties and deliverables throughout the project lifecycle. Collaborates with cross-functional teams to ensure quality deliverables and timely project completion.`;
+    // Check for page break
+    const roleText = `${role} – ${responsibilities}`;
+    const estimatedHeight = doc.heightOfString(roleText, {
+      width: pageWidth,
+      lineGap: 5
+    });
 
-    // Reset X position to left margin for each role entry
-    doc.x = doc.page.margins.left;
+    if (doc.y + estimatedHeight > doc.page.height - doc.page.margins.bottom - 30) {
+      doc.addPage();
+      addPageHeader(doc, companyName, dateGenerated, pageWidth);
+      doc.y = doc.page.margins.top + 72; // 1 inch from top
+    }
 
+    // Role name in bold
     doc.fontSize(11).fillColor(COLORS.primary).font('Helvetica-Bold');
-    doc.text(`${role}`, doc.page.margins.left, doc.y, {
+    doc.text(role, doc.page.margins.left, doc.y, {
       continued: true,
       width: pageWidth
     });
 
-    doc.fontSize(11).fillColor(COLORS.text).font('Helvetica');
+    // Responsibilities in regular font
+    doc.fontSize(11).font('Helvetica');
     doc.text(` – ${responsibilities}`, {
       lineGap: 5,
       width: pageWidth
     });
-    doc.moveDown(1);
+    doc.moveDown(1); // 12pt spacing after each role
   });
 }
 
 /**
- * Generate PDF document from proposal content with professional branding
+ * Generate PDF document from proposal content matching exact template
  */
 export async function generatePdf(
   title: string,
@@ -419,10 +521,12 @@ export async function generatePdf(
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
+      // Template margins: Top 1 inch (72pt), Left/Right 0.75 inch (54pt), Bottom 0.75 inch (54pt)
       const doc = new PDFDocument({
         size: 'LETTER',
-        margins: { top: 72, bottom: 72, left: 72, right: 72 },
-        bufferPages: true
+        margins: { top: 72, bottom: 54, left: 54, right: 54 },
+        bufferPages: true,
+        autoFirstPage: true
       });
 
       const chunks: Buffer[] = [];
@@ -431,210 +535,349 @@ export async function generatePdf(
       doc.on('error', reject);
 
       const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-      const currentDate = new Date().toLocaleDateString('en-US', {
+      const dateGenerated = new Date().toLocaleDateString('en-US', {
         month: 'long',
         year: 'numeric'
       });
 
-      // === TITLE PAGE ===
-      // Header with company name and date
-      doc.fontSize(10).fillColor(COLORS.lightGray);
-      if (companyName) {
-        doc.text(companyName, doc.page.margins.left, 40);
-      }
-      doc.text(currentDate, doc.page.margins.left, 40, {
-        align: 'right',
-        width: pageWidth
-      });
+      // === PAGE 1: TITLE PAGE ===
+      // NO header on title page
+      // 2.5 inches (180pt) of whitespace from top
+      doc.y = 180;
 
-      // Main title - large and bold
-      doc.moveDown(8);
-      doc.fontSize(48).fillColor(COLORS.primary).font('Helvetica-Bold');
+      // "Project Proposal" - 57pt bold (matching template)
+      doc.fontSize(57).fillColor(COLORS.primary).font('Helvetica-Bold');
       doc.text('Project', { align: 'left' });
+      doc.moveDown(0.2);
       doc.text('Proposal', { align: 'left' });
+      doc.moveDown(1.5);
 
-      // Subtitle/Project name
-      doc.moveDown(1);
-      doc.fontSize(16).fillColor(COLORS.accent).font('Helvetica');
-      doc.text(title, { align: 'left' });
+      // Project title - 18pt accent color
+      doc.fontSize(18).fillColor(COLORS.accent).font('Helvetica');
+      doc.text(title || 'Project Name', { align: 'left' });
 
-      // Footer area with prepared by info
-      const footerY = doc.page.height - 150;
-      doc.rect(doc.page.margins.left, footerY, pageWidth, 80)
-        .fill(COLORS.primary);
+      // Color block at bottom of page with "Prepared by"
+      const blockHeight = 150;
+      const blockY = doc.page.height - blockHeight;
+      doc.rect(0, blockY, doc.page.width, blockHeight)
+         .fillColor('#4A5859')
+         .fill();
 
-      doc.fontSize(10).fillColor('#FFFFFF').font('Helvetica');
-      doc.text('Prepared by:', doc.page.margins.left + 20, footerY + 20);
-      doc.fontSize(14).font('Helvetica-Bold');
-      doc.text(companyName || 'Your Company', doc.page.margins.left + 20, footerY + 35);
+      // "Prepared by:" text in color block
+      doc.fontSize(11).fillColor('#FFFFFF').font('Helvetica');
+      doc.text('Prepared by:', doc.page.margins.left, blockY + 40, {
+        align: 'left'
+      });
+      doc.moveDown(0.5);
 
-      // === TABLE OF CONTENTS PAGE ===
-      doc.addPage();
-
-      // Page header
-      doc.fontSize(10).fillColor(COLORS.lightGray).font('Helvetica');
-      if (companyName) {
-        doc.text(companyName, doc.page.margins.left, 40);
-      }
-      doc.text(currentDate, doc.page.margins.left, 40, {
-        align: 'right',
-        width: pageWidth
+      // Company name in white
+      doc.fontSize(18).fillColor('#FFFFFF').font('Helvetica-Bold');
+      doc.text(companyName || 'Company Name', {
+        align: 'left'
       });
 
-      // TOC title
-      doc.moveDown(4);
-      doc.fontSize(28).fillColor(COLORS.primary).font('Helvetica-Bold');
-      doc.text('Table of Contents', { align: 'left' });
-      doc.moveDown(2);
+      // === PAGE 2: TABLE OF CONTENTS ===
+      doc.addPage();
+      addPageHeader(doc, companyName, dateGenerated, pageWidth);
 
-      // Standard sections for TOC
-      const standardSections = [
-        { key: 'executiveSummary', title: 'Executive Summary', num: '01' },
-        { key: 'introduction', title: 'Introduction', num: '02' },
-        { key: 'valueProposition', title: 'Value Proposition', num: '03' },
-        { key: 'technicalApproach', title: 'Technical Approach', num: '04' },
-        { key: 'qualifications', title: 'Qualifications', num: '05' },
-        { key: 'projectTimeline', title: 'Project Timeline', num: '06' },
-        { key: 'timeline', title: 'Timeline', num: '06' },
-        { key: 'investmentEstimate', title: 'Investment Estimate', num: '07' },
-        { key: 'pricing', title: 'Pricing', num: '07' },
-        { key: 'resources', title: 'Resources', num: '08' },
-        { key: 'riskManagement', title: 'Risk Management', num: '09' },
-        { key: 'questionsForClient', title: 'Questions for Client', num: '10' },
-        { key: 'conclusion', title: 'Conclusion', num: '11' }
+      // 1 inch from top of page content area (72pt + 36pt header = 108pt)
+      doc.y = doc.page.margins.top + 72;
+
+      // TOC title - 24pt bold
+      doc.fontSize(24).fillColor(COLORS.primary).font('Helvetica-Bold');
+      doc.text('Table of Contents', { align: 'left' });
+      doc.y += 36; // 0.5 inch spacing
+
+      // TOC entries - Fixed order per template
+      const tocSections = [
+        { num: '01', title: 'Executive Summary', key: 'executiveSummary' },
+        { num: '02', title: 'Value Proposition', key: 'valueProposition' },
+        { num: '03', title: 'Technical Approach', key: 'technicalApproach' },
+        { num: '04', title: 'Project Timeline', key: 'projectTimeline' },
+        { num: '05', title: 'Investment Estimate', key: 'investmentEstimate' },
+        { num: '06', title: 'Resources', key: 'resources' },
+        { num: '07', title: 'Questions for Client', key: 'questionsForClient' }
       ];
 
-      // Build TOC entries
-      let tocNum = 1;
-      const sectionsWithContent: Array<{key: string, title: string, num: string}> = [];
-      for (const section of standardSections) {
-        if (content[section.key]) {
-          const numStr = String(tocNum).padStart(2, '0');
-          sectionsWithContent.push({ ...section, num: numStr });
-
-          // TOC entry
-          doc.fontSize(10).fillColor(COLORS.accent).font('Helvetica-Bold');
-          doc.text(numStr, { continued: true });
-          doc.fillColor(COLORS.text).font('Helvetica');
-          doc.text(`   ${section.title}`);
-          doc.moveDown(0.8);
-
-          // Divider line
-          doc.moveTo(doc.page.margins.left, doc.y)
-            .lineTo(doc.page.margins.left + pageWidth, doc.y)
-            .strokeColor(COLORS.lightGray)
-            .lineWidth(0.5)
-            .stroke();
-          doc.moveDown(0.8);
-
-          tocNum++;
+      tocSections.forEach((section) => {
+        // Only show if content exists
+        if (content[section.key] || section.key === 'projectTimeline' && content.timeline) {
+          doc.fontSize(11).fillColor(COLORS.primary).font('Helvetica');
+          doc.text(`${section.num} ${section.title}`, { align: 'left' });
+          doc.y += 12; // 12pt spacing between entries
         }
-      }
-
-      // === CONTENT PAGES ===
-      let sectionIndex = 0;
-      for (const section of sectionsWithContent) {
-        if (content[section.key]) {
-          doc.addPage();
-
-          // Page header
-          doc.fontSize(10).fillColor(COLORS.lightGray).font('Helvetica');
-          if (companyName) {
-            doc.text(companyName, doc.page.margins.left, 40);
-          }
-          doc.text(currentDate, doc.page.margins.left, 40, {
-            align: 'right',
-            width: pageWidth
-          });
-
-          // Section number
-          doc.moveDown(4);
-          doc.fontSize(24).fillColor(COLORS.accent).font('Helvetica-Bold');
-          doc.text(section.num, { align: 'left' });
-
-          // Section title
-          doc.fontSize(28).fillColor(COLORS.primary).font('Helvetica-Bold');
-          doc.text(section.title, { align: 'left' });
-          doc.moveDown(1);
-
-          // Special formatting for specific sections
-          if (section.key === 'investmentEstimate' || section.key === 'pricing') {
-            renderInvestmentEstimate(doc, content[section.key], pageWidth);
-          } else if (section.key === 'resources') {
-            renderResources(doc, content[section.key], pageWidth);
-          } else {
-            // Convert content to text for standard sections
-            const textContent = valueToText(content[section.key]);
-
-            // Section content
-            doc.fontSize(11).fillColor(COLORS.text).font('Helvetica');
-            doc.text(textContent, {
-              align: 'left',
-              lineGap: 6,
-              paragraphGap: 10
-            });
-          }
-
-          sectionIndex++;
-        }
-      }
-
-      // Custom sections
-      if (content.sections && Array.isArray(content.sections)) {
-        for (const section of content.sections) {
-          doc.addPage();
-
-          // Page header
-          doc.fontSize(10).fillColor(COLORS.lightGray).font('Helvetica');
-          if (companyName) {
-            doc.text(companyName, doc.page.margins.left, 40);
-          }
-          doc.text(currentDate, doc.page.margins.left, 40, {
-            align: 'right',
-            width: pageWidth
-          });
-
-          doc.moveDown(4);
-          doc.fontSize(28).fillColor(COLORS.primary).font('Helvetica-Bold');
-          doc.text(section.title, { align: 'left' });
-          doc.moveDown(1);
-
-          doc.fontSize(11).fillColor(COLORS.text).font('Helvetica');
-          doc.text(String(section.content), {
-            align: 'left',
-            lineGap: 6
-          });
-        }
-      }
-
-      // === CLOSING PAGE ===
-      doc.addPage();
-
-      // Page header
-      doc.fontSize(10).fillColor(COLORS.lightGray).font('Helvetica');
-      if (companyName) {
-        doc.text(companyName, doc.page.margins.left, 40);
-      }
-      doc.text(currentDate, doc.page.margins.left, 40, {
-        align: 'right',
-        width: pageWidth
       });
 
-      // Closing message
-      doc.moveDown(12);
-      doc.fontSize(48).fillColor(COLORS.primary).font('Helvetica-Bold');
+      // === PAGE 3: SECTION 01 - EXECUTIVE SUMMARY ===
+      if (content.executiveSummary) {
+        doc.addPage();
+        addPageHeader(doc, companyName, dateGenerated, pageWidth);
+        doc.y = doc.page.margins.top + 72; // 1 inch from top
+
+        // Section number - 48pt bold
+        doc.fontSize(48).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('01', { align: 'left' });
+        doc.y += 8; // 8pt spacing
+
+        // Section title - 24pt bold
+        doc.fontSize(24).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('Executive Summary', { align: 'left' });
+        doc.y += 20; // 20pt spacing
+
+        // Content - 11pt, 16pt line height
+        doc.fontSize(11).fillColor(COLORS.primary).font('Helvetica');
+        const execSummary = typeof content.executiveSummary === 'string' 
+          ? content.executiveSummary 
+          : valueToText(content.executiveSummary);
+        const execParagraphs = execSummary.split(/\n\n+/);
+        execParagraphs.forEach((para: string) => {
+          if (para.trim()) {
+            if (doc.y + 50 > doc.page.height - doc.page.margins.bottom) {
+              doc.addPage();
+              addPageHeader(doc, companyName, dateGenerated, pageWidth);
+              doc.y = doc.page.margins.top + 72;
+            }
+            doc.text(para.trim(), {
+              align: 'left',
+              width: pageWidth,
+              lineGap: 5,
+              paragraphGap: 12
+            });
+            doc.y += 12; // 12pt spacing after paragraph
+          }
+        });
+      }
+
+      // === PAGE 4: SECTION 02 - VALUE PROPOSITION ===
+      if (content.valueProposition) {
+        doc.addPage();
+        addPageHeader(doc, companyName, dateGenerated, pageWidth);
+        doc.y = doc.page.margins.top + 72;
+
+        doc.fontSize(48).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('02', { align: 'left' });
+        doc.y += 8;
+
+        doc.fontSize(24).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('Value Proposition', { align: 'left' });
+        doc.y += 20;
+
+        doc.fontSize(11).fillColor(COLORS.primary).font('Helvetica');
+        const valueProp = typeof content.valueProposition === 'string'
+          ? content.valueProposition
+          : valueToText(content.valueProposition);
+        const valueParagraphs = valueProp.split(/\n\n+/);
+        valueParagraphs.forEach((para: string) => {
+          if (para.trim()) {
+            if (doc.y + 50 > doc.page.height - doc.page.margins.bottom) {
+              doc.addPage();
+              addPageHeader(doc, companyName, dateGenerated, pageWidth);
+              doc.y = doc.page.margins.top + 72;
+            }
+            doc.text(para.trim(), {
+              align: 'left',
+              width: pageWidth,
+              lineGap: 5,
+              paragraphGap: 12
+            });
+            doc.y += 12;
+          }
+        });
+      }
+
+      // === PAGE 5: SECTION 03 - TECHNICAL APPROACH ===
+      if (content.technicalApproach) {
+        doc.addPage();
+        addPageHeader(doc, companyName, dateGenerated, pageWidth);
+        doc.y = doc.page.margins.top + 72;
+
+        doc.fontSize(48).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('03', { align: 'left' });
+        doc.y += 8;
+
+        doc.fontSize(24).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('Technical Approach', { align: 'left' });
+        doc.y += 20;
+
+        doc.fontSize(11).fillColor(COLORS.primary).font('Helvetica');
+        const techApproach = typeof content.technicalApproach === 'string'
+          ? content.technicalApproach
+          : valueToText(content.technicalApproach);
+        const techParagraphs = techApproach.split(/\n\n+/);
+        techParagraphs.forEach((para: string) => {
+          if (para.trim()) {
+            if (doc.y + 50 > doc.page.height - doc.page.margins.bottom) {
+              doc.addPage();
+              addPageHeader(doc, companyName, dateGenerated, pageWidth);
+              doc.y = doc.page.margins.top + 72;
+            }
+            doc.text(para.trim(), {
+              align: 'left',
+              width: pageWidth,
+              lineGap: 5,
+              paragraphGap: 12
+            });
+            doc.y += 12;
+          }
+        });
+      }
+
+      // === PAGE 6: SECTION 04 - PROJECT TIMELINE ===
+      const timelineContent = content.projectTimeline || content.timeline;
+      if (timelineContent) {
+        doc.addPage();
+        addPageHeader(doc, companyName, dateGenerated, pageWidth);
+        doc.y = doc.page.margins.top + 72;
+
+        doc.fontSize(48).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('04', { align: 'left' });
+        doc.y += 8;
+
+        doc.fontSize(24).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('Project Timeline', { align: 'left' });
+        doc.y += 20;
+
+        doc.fontSize(11).fillColor(COLORS.primary).font('Helvetica');
+        const timeline = typeof timelineContent === 'string'
+          ? timelineContent
+          : valueToText(timelineContent);
+        const timelineParagraphs = timeline.split(/\n\n+/);
+        timelineParagraphs.forEach((para: string) => {
+          if (para.trim()) {
+            if (doc.y + 50 > doc.page.height - doc.page.margins.bottom) {
+              doc.addPage();
+              addPageHeader(doc, companyName, dateGenerated, pageWidth);
+              doc.y = doc.page.margins.top + 72;
+            }
+            doc.text(para.trim(), {
+              align: 'left',
+              width: pageWidth,
+              lineGap: 5,
+              paragraphGap: 12
+            });
+            doc.y += 12;
+          }
+        });
+      }
+
+      // === PAGE 7: SECTION 05 - INVESTMENT ESTIMATE ===
+      const investmentContent = content.investmentEstimate || content.pricing;
+      if (investmentContent) {
+        doc.addPage();
+        addPageHeader(doc, companyName, dateGenerated, pageWidth);
+        doc.y = doc.page.margins.top + 72;
+
+        doc.fontSize(48).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('05', { align: 'left' });
+        doc.y += 8;
+
+        doc.fontSize(24).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('Investment Estimate', { align: 'left' });
+        doc.y += 20;
+
+        renderInvestmentEstimate(doc, investmentContent, pageWidth, companyName, dateGenerated);
+      }
+
+      // === PAGES 8-9: SECTION 06 - RESOURCES ===
+      // Check for resources in multiple possible locations
+      const resourcesData = content.resources ||
+                           content.resource ||
+                           content.teamResources ||
+                           content.teamMembers ||
+                           content.team ||
+                           null;
+
+      console.log('generatePdf - Checking for resources:', {
+        'content keys': Object.keys(content),
+        'content.resources': content.resources,
+        'content.resource': content.resource,
+        'content.teamResources': content.teamResources,
+        'content.teamMembers': content.teamMembers,
+        'resourcesData': resourcesData,
+        'isArray': Array.isArray(resourcesData),
+        'type': typeof resourcesData
+      });
+
+      if (resourcesData) {
+        doc.addPage();
+        addPageHeader(doc, companyName, dateGenerated, pageWidth);
+        doc.y = doc.page.margins.top + 72;
+
+        doc.fontSize(48).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('06', { align: 'left' });
+        doc.y += 8;
+
+        doc.fontSize(24).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('Resources', { align: 'left' });
+        doc.y += 20;
+
+        renderResources(doc, resourcesData, pageWidth, companyName, dateGenerated);
+      } else {
+        console.log('generatePdf - No resources data found, skipping Resources section');
+      }
+
+      // === PAGE 10: SECTION 07 - QUESTIONS FOR CLIENT ===
+      if (content.questionsForClient && Array.isArray(content.questionsForClient)) {
+        doc.addPage();
+        addPageHeader(doc, companyName, dateGenerated, pageWidth);
+        doc.y = doc.page.margins.top + 72;
+
+        doc.fontSize(48).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('07', { align: 'left' });
+        doc.y += 8;
+
+        doc.fontSize(24).fillColor(COLORS.primary).font('Helvetica-Bold');
+        doc.text('Questions for Client', { align: 'left' });
+        doc.y += 20;
+
+        doc.fontSize(11).fillColor(COLORS.primary).font('Helvetica');
+        content.questionsForClient.forEach((question: string) => {
+          if (doc.y + 30 > doc.page.height - doc.page.margins.bottom) {
+            doc.addPage();
+            addPageHeader(doc, companyName, dateGenerated, pageWidth);
+            doc.y = doc.page.margins.top + 72;
+          }
+          doc.text(`• ${question}`, {
+            align: 'left',
+            width: pageWidth,
+            lineGap: 5
+          });
+          doc.y += 8; // 8pt spacing after each question
+        });
+      }
+
+      // === PAGE 11: FINAL PAGE ===
+      doc.addPage();
+      addPageHeader(doc, companyName, dateGenerated, pageWidth);
+
+      // 3 inches (216pt) of whitespace from top
+      doc.y = doc.page.margins.top + 216;
+
+      // "Let's Work Together" - 57pt bold matching template
+      doc.fontSize(57).fillColor(COLORS.primary).font('Helvetica-Bold');
       doc.text("Let's Work", { align: 'left' });
+      doc.moveDown(0.2);
       doc.text('Together', { align: 'left' });
 
-      // Contact footer
-      const closingFooterY = doc.page.height - 120;
-      doc.rect(doc.page.margins.left, closingFooterY, pageWidth, 60)
-        .fill(COLORS.primary);
+      // Color block at bottom of page
+      const finalBlockHeight = 200;
+      const finalBlockY = doc.page.height - finalBlockHeight;
+      doc.rect(0, finalBlockY, doc.page.width, finalBlockHeight)
+         .fillColor('#4A5859')
+         .fill();
 
-      doc.fontSize(12).fillColor('#FFFFFF').font('Helvetica-Bold');
-      doc.text('Contact Us', doc.page.margins.left + 20, closingFooterY + 15);
-      doc.fontSize(10).font('Helvetica');
-      doc.text(companyName || 'Your Company', doc.page.margins.left + 20, closingFooterY + 32);
+      // "Contact Us" heading in white
+      doc.fontSize(24).fillColor('#FFFFFF').font('Helvetica-Bold');
+      doc.text('Contact Us', doc.page.margins.left, finalBlockY + 40, {
+        align: 'left'
+      });
+      doc.moveDown(0.5);
+
+      // Contact information in white
+      doc.fontSize(14).fillColor('#FFFFFF').font('Helvetica');
+      doc.text(companyName || 'Company Name', {
+        align: 'left'
+      });
 
       doc.end();
     } catch (error) {
