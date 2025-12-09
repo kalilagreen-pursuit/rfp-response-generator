@@ -718,7 +718,7 @@ export const exportProposalPdf = async (req: Request, res: Response) => {
     // Get company name from profile
     const { data: profile, error: profileError } = await supabase
       .from('company_profiles')
-      .select('company_name')
+      .select('company_name, email, phone')
       .eq('user_id', req.userId)
       .single();
 
@@ -732,7 +732,9 @@ export const exportProposalPdf = async (req: Request, res: Response) => {
     const buffer = await generatePdf(
       proposal.title,
       proposalData,
-      profile?.company_name
+      profile?.company_name,
+      profile?.email,
+      profile?.phone
     );
 
     // Update exported_at timestamp

@@ -517,7 +517,9 @@ function renderResources(
 export async function generatePdf(
   title: string,
   content: ProposalContent,
-  companyName?: string
+  companyName?: string,
+  companyEmail?: string,
+  companyPhone?: string
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
@@ -878,6 +880,22 @@ export async function generatePdf(
       doc.text(companyName || 'Company Name', {
         align: 'left'
       });
+
+      // Add email if available
+      if (companyEmail) {
+        doc.moveDown(0.3);
+        doc.text(companyEmail, {
+          align: 'left'
+        });
+      }
+
+      // Add phone if available
+      if (companyPhone) {
+        doc.moveDown(0.3);
+        doc.text(companyPhone, {
+          align: 'left'
+        });
+      }
 
       doc.end();
     } catch (error) {
