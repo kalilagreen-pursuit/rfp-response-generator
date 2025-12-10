@@ -6,7 +6,15 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/lead-capture/:code",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/invitations/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!api).*)",
       "destination": "/index.html"
     }
   ],
