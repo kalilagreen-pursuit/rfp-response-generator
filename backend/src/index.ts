@@ -10,6 +10,7 @@ import proposalRoutes from './routes/proposal.routes.js';
 import networkRoutes from './routes/network.routes.js';
 import teamRoutes from './routes/team.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
+import qrRoutes from './routes/qr.routes.js';
 import { env } from './utils/validateEnv.js';
 import { requestLogger, errorLogger, performanceMonitor } from './middleware/logger.js';
 
@@ -176,6 +177,9 @@ app.use('/api/team', teamRoutes);
 
 // Analytics routes
 app.use('/api/analytics', analyticsRoutes);
+
+// QR Code and Lead Capture routes
+app.use('/api', qrRoutes);
 
 // Error handling middleware
 app.use(errorLogger);

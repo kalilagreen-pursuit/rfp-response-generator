@@ -5,18 +5,27 @@ import { AppProvider } from './contexts/AppContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthScreen from './components/AuthScreen';
 import InvitationAcceptPage from './components/InvitationAcceptPage';
+import LeadCaptureForm from './components/LeadCaptureForm';
 
 // Wrapper component to handle auth state
 const AuthenticatedApp: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const [showInvitationPage, setShowInvitationPage] = useState(false);
+  const [leadCaptureCode, setLeadCaptureCode] = useState<string | null>(null);
 
-  // Check for invitation token in URL
+  // Check for invitation token or lead capture in URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
     const path = window.location.pathname;
-    
+
+    // Check for lead capture page
+    const leadCaptureMatch = path.match(/^\/lead-capture\/([a-zA-Z0-9_-]+)$/);
+    if (leadCaptureMatch) {
+      setLeadCaptureCode(leadCaptureMatch[1]);
+      return;
+    }
+
     // Show invitation page if we're on /invitations/accept with a token
     if (path.includes('/invitations/accept') && token) {
       setShowInvitationPage(true);
@@ -24,6 +33,11 @@ const AuthenticatedApp: React.FC = () => {
       setShowInvitationPage(false);
     }
   }, []);
+
+  // Show lead capture page if on /lead-capture/:code (no auth required)
+  if (leadCaptureCode) {
+    return <LeadCaptureForm uniqueCode={leadCaptureCode} />;
+  }
 
   if (isLoading) {
     return (

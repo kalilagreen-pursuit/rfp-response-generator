@@ -697,6 +697,48 @@ export const sendConnectionRequestEmail = async (data: ConnectionRequestEmailDat
   }
 };
 
+/**
+ * Generic send email function
+ */
+export interface SendEmailData {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}
+
+export const sendEmail = async (data: SendEmailData): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const client = getResendClient();
+    if (!client) {
+      console.warn('RESEND_API_KEY not configured, skipping email send');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const result = await client.emails.send({
+      from: FROM_EMAIL,
+      to: data.to,
+      subject: data.subject,
+      html: data.html,
+      text: data.text,
+    });
+
+    if (result.error) {
+      console.error('Resend API error:', result.error);
+      return { success: false, error: result.error.message };
+    }
+
+    console.log('Email sent successfully:', result.data?.id);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to send email:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
+
 export default {
   generateInvitationEmailHTML,
   generateInvitationEmailText,
@@ -708,4 +750,5 @@ export default {
   sendAcceptanceNotification,
   sendDeclineNotification,
   sendConnectionRequestEmail,
+  sendEmail,
 };

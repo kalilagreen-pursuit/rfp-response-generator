@@ -15,7 +15,7 @@ import Profile from './components/Profile';
 import CalendarView from './components/CalendarView';
 import { useAppContext } from './contexts/AppContext';
 import { formatProposalForDownload } from './utils/formatters';
-import { exportProposalToPdf } from './utils/pdfExporter';
+import { exportProposalToPdf, downloadProposalPdfFromBackend } from './utils/pdfExporter';
 import { proposalsAPI, getAuthToken } from './services/api';
 import ToastContainer from './components/ToastContainer';
 import OnboardingTour from './components/OnboardingTour';
@@ -32,6 +32,7 @@ import DocumentViewerModal from './components/DocumentViewerModal';
 import MyInvitationsView from './components/MyInvitationsView';
 import MarketplaceView from './components/MarketplaceView';
 import ErrorBoundary from './components/ErrorBoundary';
+import QRCodeManager from './components/QRCodeManager';
 
 const allSalesStages: SalesStage[] = ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Closed-Won', 'Closed-Lost'];
 
@@ -393,10 +394,20 @@ const App: React.FC = () => {
         setIsDownloadingPdf(true);
         addToast('Preparing PDF download...', 'info');
         try {
-            // For now, always use client-side export since proposals are generated locally
-            // Backend export will be enabled when full backend integration is complete
-            await exportProposalToPdf(folder, profileData.companyName || 'Your Company');
-            addToast('PDF downloaded successfully', 'success');
+            // Check if user is authenticated and proposal is synced to backend
+            const isAuthenticated = !!getAuthToken();
+
+            if (isAuthenticated && folder.id && folder.id.length > 10) {
+                // Use backend PDF export (correct MASTER_PROMPT formatting with Liceria branding)
+                console.log('Using backend PDF export for proposal:', folder.id);
+                await downloadProposalPdfFromBackend(folder.id, folder.proposal.projectName);
+                addToast('PDF downloaded successfully', 'success');
+            } else {
+                // Fallback to deprecated frontend export for local-only proposals
+                console.warn('Using deprecated frontend PDF export (proposal not synced to backend)');
+                await exportProposalToPdf(folder, profileData.companyName || 'Your Company');
+                addToast('PDF downloaded successfully (using legacy format)', 'info');
+            }
         } catch (error: any) {
             addToast(`Failed to generate PDF: ${error.message}`, 'error');
             console.error(error);
@@ -476,6 +487,8 @@ const App: React.FC = () => {
                 );
             case 'whitepaperStudio':
                 return <WhitepaperStudioView projects={projectFolders} />;
+            case 'marketing':
+                return <QRCodeManager />;
             case 'invitations':
                 return <MyInvitationsView />;
             case 'marketplace':

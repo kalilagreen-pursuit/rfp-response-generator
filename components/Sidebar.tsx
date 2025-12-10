@@ -2,7 +2,7 @@
 
 import React from 'react';
 import type { View } from '../types';
-import { DocumentIcon, CalendarIcon, FolderIcon, UsersIcon, SearchIcon as DashboardIcon, SparklesIcon, BookOpenIcon, PlusIcon, EmailIcon } from './icons';
+import { DocumentIcon, CalendarIcon, FolderIcon, UsersIcon, SearchIcon as DashboardIcon, SparklesIcon, BookOpenIcon, PlusIcon, EmailIcon, QrCodeIcon } from './icons';
 
 const SciLogo = () => (
     <svg width="250" height="50" viewBox="0 0 350 70" className="h-12 w-auto">
@@ -69,6 +69,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, isOpen, on
         { view: 'projects', label: 'Projects', icon: FolderIcon, tourId: 'projects-nav' },
         { view: 'crm', label: 'CRM', icon: UsersIcon, tourId: 'crm-nav' },
         { view: 'calendar', label: 'Calendar', icon: CalendarIcon, tourId: 'calendar-nav' },
+        { view: 'marketing', label: 'Marketing', icon: QrCodeIcon, tourId: 'marketing-nav' },
         { view: 'invitations', label: 'Invitations', icon: EmailIcon, tourId: 'invitations-nav' },
         { view: 'marketplace', label: 'Marketplace', icon: UsersIcon, tourId: 'marketplace-nav' },
     ];
