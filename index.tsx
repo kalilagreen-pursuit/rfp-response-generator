@@ -19,9 +19,9 @@ const AuthenticatedApp: React.FC = () => {
     const token = urlParams.get('token');
     const path = window.location.pathname;
 
-    // Check for lead capture page
+    // Check for lead capture page (base64url can contain a-zA-Z0-9_-)
     const leadCaptureMatch = path.match(/^\/lead-capture\/([a-zA-Z0-9_-]+)$/);
-    if (leadCaptureMatch) {
+    if (leadCaptureMatch && leadCaptureMatch[1]) {
       setLeadCaptureCode(leadCaptureMatch[1]);
       return;
     }
