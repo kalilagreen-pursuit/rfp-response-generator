@@ -1,5 +1,22 @@
 
 
+/**
+ * ⚠️ DEPRECATED: This frontend PDF exporter is deprecated and will be removed in a future version.
+ *
+ * Issues with this implementation:
+ * - Uses A4 format instead of US Letter (MASTER_PROMPT spec)
+ * - Wrong margins (15mm vs 1"/0.75" spec)
+ * - Wrong font sizes (28pt section numbers vs 48pt spec)
+ * - Hardcoded "November 2025" dates in 10+ locations
+ * - Inconsistent spacing and typography
+ *
+ * The backend export service (backend/src/services/export.service.ts) correctly implements
+ * the MASTER_PROMPT specifications with Liceria Corporate branding.
+ *
+ * Use the backend API instead: GET /api/proposals/:id/export/pdf
+ * Or use the helper function: downloadProposalPdfFromBackend()
+ */
+
 import jsPDF from 'jspdf';
 import type { ProjectFolder, Resource, Slide, Whitepaper } from '../types';
 import { formatCurrency } from './formatters';
@@ -16,7 +33,8 @@ const TEXT_COLOR_DARK = '#1F2937';
 const TEXT_COLOR_LIGHT = '#6B7280';
 const GREEN_TEXT = '#15803d';
 const AMBER_TEXT = '#b45309';
-const FONT_BOLD = 'helvetica-bold';
+// jsPDF font names: 'helvetica', 'times', 'courier' with style: 'normal', 'bold', 'italic', 'bolditalic'
+const FONT_BOLD = 'helvetica';
 const FONT_NORMAL = 'helvetica';
 
 const addSlideTemplate = (doc: jsPDF, slide: Slide, pageNumber: number, totalPages: number, companyName: string = 'Your Company') => {
@@ -841,6 +859,14 @@ class PdfProposalGenerator {
     }
 
     private addResourcesPage(proposal: any) {
+        // Check if resources exist
+        if (!proposal.resources || !Array.isArray(proposal.resources) || proposal.resources.length === 0) {
+            console.warn('addResourcesPage: No resources data found', proposal);
+            return;
+        }
+
+        console.log('addResourcesPage: Processing resources', proposal.resources);
+
         // Header
         this.doc.setFont(FONT_NORMAL, 'normal');
         this.doc.setFontSize(10);
@@ -866,39 +892,61 @@ class PdfProposalGenerator {
 
         // Resources table
         const head = [['Role', 'Hours', 'Rate Range (Low)', 'Rate Range (High)']];
-        const body = proposal.resources.map((res: Resource) => [
-            res.role,
-            String(res.hours),
-            `${formatCurrency(res.lowRate)}/hr`,
-            `${formatCurrency(res.highRate)}/hr`
-        ]);
+        const body = proposal.resources.map((res: Resource) => {
+            console.log('Mapping resource:', res);
+            return [
+                res.role || 'Unknown Role',
+                String(res.hours || 0),
+                `${formatCurrency(res.lowRate || 0)}/hr`,
+                `${formatCurrency(res.highRate || 0)}/hr`
+            ];
+        });
+
+        console.log('addResourcesPage: Table data', { head, body, bodyLength: body.length });
 
         import('jspdf-autotable').then(({ default: autoTable }) => {
-            autoTable(this.doc, {
-                head,
-                body,
-                startY: 110,
-                theme: 'plain',
-                headStyles: {
-                    fillColor: BRAND_COLOR_PRIMARY,
-                    textColor: '#FFFFFF',
-                    fontStyle: 'normal',
-                    fontSize: 10,
-                    cellPadding: 3
-                },
-                styles: {
-                    fontSize: 9,
-                    cellPadding: 3,
-                    lineColor: 200,
-                    lineWidth: 0.1
-                },
-                columnStyles: {
-                    0: { cellWidth: 70 },
-                    1: { halign: 'center', cellWidth: 30 },
-                    2: { halign: 'right', cellWidth: 40 },
-                    3: { halign: 'right', cellWidth: 40 }
-                }
-            });
+            console.log('addResourcesPage: autotable loaded, rendering table with', body.length, 'rows');
+            try {
+                autoTable(this.doc, {
+                    head,
+                    body,
+                    startY: 110,
+                    theme: 'plain',
+                    headStyles: {
+                        fillColor: BRAND_COLOR_PRIMARY,
+                        textColor: '#FFFFFF',
+                        fontStyle: 'normal',
+                        fontSize: 10,
+                        cellPadding: 3
+                    },
+                    styles: {
+                        fontSize: 9,
+                        cellPadding: 3,
+                        lineColor: 200,
+                        lineWidth: 0.1
+                    },
+                    columnStyles: {
+                        0: { cellWidth: 70 },
+                        1: { halign: 'center', cellWidth: 30 },
+                        2: { halign: 'right', cellWidth: 40 },
+                        3: { halign: 'right', cellWidth: 40 }
+                    }
+                });
+                console.log('addResourcesPage: Table rendered successfully');
+            } catch (error) {
+                console.error('addResourcesPage: Error rendering table', error);
+                // Fallback: render table manually
+                this.doc.setFont(FONT_NORMAL, 'normal');
+                this.doc.setFontSize(9);
+                let yPos = 110;
+                body.forEach((row: string[]) => {
+                    this.doc.text(row[0], MARGIN, yPos);
+                    this.doc.text(row[1], MARGIN + 70, yPos);
+                    this.doc.text(row[2], MARGIN + 100, yPos);
+                    this.doc.text(row[3], MARGIN + 140, yPos);
+                    yPos += 8;
+                });
+            }
 
             // Role Responsibilities section (only if resources have descriptions)
             const resourcesWithDescriptions = proposal.resources.filter((res: Resource) => res.description);
@@ -943,6 +991,30 @@ class PdfProposalGenerator {
                     yPos += descLines.length * 5 + 8;
                 });
             }
+        }).catch((error) => {
+            console.error('addResourcesPage: Failed to load jspdf-autotable:', error);
+            // Fallback: render table manually
+            this.doc.setFont(FONT_NORMAL, 'normal');
+            this.doc.setFontSize(9);
+            let yPos = 110;
+            
+            // Render header
+            this.doc.setFont(FONT_BOLD, 'bold');
+            this.doc.text('Role', MARGIN, yPos);
+            this.doc.text('Hours', MARGIN + 70, yPos);
+            this.doc.text('Rate Range (Low)', MARGIN + 100, yPos);
+            this.doc.text('Rate Range (High)', MARGIN + 140, yPos);
+            yPos += 10;
+            
+            // Render rows
+            this.doc.setFont(FONT_NORMAL, 'normal');
+            body.forEach((row: string[]) => {
+                this.doc.text(row[0] || '', MARGIN, yPos);
+                this.doc.text(row[1] || '', MARGIN + 70, yPos);
+                this.doc.text(row[2] || '', MARGIN + 100, yPos);
+                this.doc.text(row[3] || '', MARGIN + 140, yPos);
+                yPos += 8;
+            });
         });
     }
 
@@ -1032,9 +1104,60 @@ class PdfProposalGenerator {
     }
 }
 
+/**
+ * @deprecated This function uses the deprecated frontend PDF generator.
+ * Use downloadProposalPdfFromBackend() instead for correct formatting.
+ */
 export const exportProposalToPdf = async (projectFolder: ProjectFolder, companyName?: string) => {
+    console.warn('⚠️ DEPRECATED: exportProposalToPdf() uses the deprecated frontend PDF generator.');
+    console.warn('Please use downloadProposalPdfFromBackend() for correct MASTER_PROMPT formatting.');
     const generator = new PdfProposalGenerator(companyName);
     generator.generate(projectFolder);
+};
+
+/**
+ * Download proposal PDF from backend (recommended)
+ * Uses the correct MASTER_PROMPT specifications with Liceria Corporate branding.
+ *
+ * @param proposalId - The proposal ID from the database
+ * @param proposalTitle - The proposal title for the filename
+ * @returns Promise that resolves when download starts
+ */
+export const downloadProposalPdfFromBackend = async (proposalId: string, proposalTitle: string): Promise<void> => {
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    const authToken = localStorage.getItem('authToken');
+
+    if (!authToken) {
+        throw new Error('Authentication required. Please log in.');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/proposals/${proposalId}/export/pdf`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${authToken}`
+        }
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            throw new Error('Authentication failed. Please log in again.');
+        }
+        if (response.status === 404) {
+            throw new Error('Proposal not found.');
+        }
+        throw new Error(`Failed to download PDF: ${response.statusText}`);
+    }
+
+    // Download the PDF
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Proposal - ${proposalTitle.replace(/\s/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
 };
 
 
