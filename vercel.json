@@ -4,18 +4,18 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "cleanUrls": true,
-  "rewrites": [
+  "routes": [
     {
-      "source": "/lead-capture/:code",
-      "destination": "/index.html"
+      "src": "/lead-capture/([^/]+)",
+      "dest": "/index.html"
     },
     {
-      "source": "/invitations/:path*",
-      "destination": "/index.html"
+      "src": "/invitations/(.*)",
+      "dest": "/index.html"
     },
     {
-      "source": "/((?!api).*)",
-      "destination": "/index.html"
+      "src": "/(.*)",
+      "dest": "/$1"
     }
   ],
   "headers": [
