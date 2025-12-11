@@ -6,11 +6,11 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/lead-capture/:path*",
+      "source": "/lead-capture/(.*)",
       "destination": "/index.html"
     },
     {
-      "source": "/invitations/:path*",
+      "source": "/invitations/(.*)",
       "destination": "/index.html"
     }
   ],
