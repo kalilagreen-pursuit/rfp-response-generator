@@ -43,3 +43,4 @@ echo ""
 echo "💡 To test production API:"
 echo "   VITE_API_URL=https://rfp-response-generator-h3w2.onrender.com/api ./test-lead-capture-api.sh $UNIQUE_CODE"
 
+

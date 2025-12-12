@@ -178,6 +178,19 @@ export async function getQRCodeDetails(req: Request, res: Response): Promise<voi
       return;
     }
 
+    // Transform leads from snake_case to camelCase for frontend
+    const transformedLeads = (leads || []).map((lead: any) => ({
+      id: lead.id,
+      companyName: lead.company_name,
+      contactName: lead.contact_name,
+      email: lead.email,
+      phone: lead.phone,
+      industry: lead.industry,
+      message: lead.message,
+      createdAt: lead.created_at,
+      convertedToUser: lead.converted_to_user,
+    }));
+
     // Generate QR code data URL
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const qrUrl = `${frontendUrl}/lead-capture/${qrCode.unique_code}`;
@@ -192,7 +205,7 @@ export async function getQRCodeDetails(req: Request, res: Response): Promise<voi
       ...qrCode,
       qrCodeDataURL,
       url: qrUrl,
-      leads: leads || [],
+      leads: transformedLeads,
     });
   } catch (error) {
     console.error('Get QR code details error:', error);
@@ -312,7 +325,21 @@ export async function getQRCodeLeads(req: Request, res: Response): Promise<void>
       return;
     }
 
-    res.json(leads || []);
+    // Transform leads from snake_case to camelCase for frontend
+    const transformedLeads = (leads || []).map((lead: any) => ({
+      id: lead.id,
+      companyName: lead.company_name,
+      contactName: lead.contact_name,
+      email: lead.email,
+      phone: lead.phone,
+      industry: lead.industry,
+      message: lead.message,
+      createdAt: lead.created_at,
+      invitedAt: lead.invited_at,
+      convertedToUser: lead.converted_to_user,
+    }));
+
+    res.json(transformedLeads);
   } catch (error) {
     console.error('Get QR code leads error:', error);
     res.status(500).json({ error: 'Internal server error' });

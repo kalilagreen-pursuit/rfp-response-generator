@@ -104,3 +104,5 @@ COMMENT ON COLUMN public.connection_requests.recipient_profile_id IS 'Company pr
 COMMENT ON COLUMN public.connection_requests.recipient_user_id IS 'User who received the connection request';
 COMMENT ON COLUMN public.connection_requests.status IS 'Request status: pending, accepted, or declined';
 
+
+

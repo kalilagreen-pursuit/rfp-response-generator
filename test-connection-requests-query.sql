@@ -48,3 +48,5 @@ LEFT JOIN public.company_profiles rp ON rp.id = cr.requester_profile_id
 LEFT JOIN public.company_profiles rcp ON rcp.id = cr.recipient_profile_id
 LIMIT 5;
 
+
+

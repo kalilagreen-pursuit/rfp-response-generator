@@ -192,3 +192,4 @@ SELECT * FROM qr_codes WHERE unique_code = 'h2MKbXct';
 - The React app (`index.tsx`) handles the route matching and renders `LeadCaptureForm`
 - The API endpoint is public (no auth required) for lead capture functionality
 
+

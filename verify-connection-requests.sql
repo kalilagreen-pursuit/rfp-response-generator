@@ -64,3 +64,5 @@ SELECT COUNT(*) as total_requests FROM public.connection_requests;
 --    - "Recipient can respond to requests"
 -- 6. Should return 0 or more (depending on if you've sent any requests)
 
+
+
