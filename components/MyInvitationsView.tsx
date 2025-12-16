@@ -48,7 +48,8 @@ interface ConnectionRequest {
 const MyInvitationsView: React.FC = () => {
   const { addToast } = useAppContext();
   const [activeTab, setActiveTab] = useState<'proposals' | 'connections'>('proposals');
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [receivedInvitations, setReceivedInvitations] = useState<Invitation[]>([]);
+  const [sentInvitations, setSentInvitations] = useState<Invitation[]>([]);
   const [connectionRequests, setConnectionRequests] = useState<ConnectionRequest[]>([]);
   const [sentConnectionRequests, setSentConnectionRequests] = useState<ConnectionRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,7 +89,16 @@ const MyInvitationsView: React.FC = () => {
       if (response.error) {
         setError(response.message || 'Failed to load invitations');
       } else {
-        setInvitations(response.invitations || []);
+        // Handle both old format (invitations) and new format (receivedInvitations/sentInvitations)
+        if (response.invitations) {
+          // Old format - only received invitations
+          setReceivedInvitations(response.invitations || []);
+          setSentInvitations([]);
+        } else {
+          // New format - both received and sent
+          setReceivedInvitations(response.receivedInvitations || []);
+          setSentInvitations(response.sentInvitations || []);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load invitations');
@@ -252,11 +262,14 @@ const MyInvitationsView: React.FC = () => {
       // Fetch proposal details
       const proposalResponse = await proposalsAPI.get(invitation.proposal_id);
       if (proposalResponse.proposal) {
+        // For sent invitations, get the inviter company from the proposal owner
+        const inviterCompany = invitation.proposals.company_profiles?.company_name || 'Your Company';
+        
         setSelectedInvitation({
           id: invitation.id,
           proposalId: invitation.proposal_id,
           proposalTitle: invitation.proposals.title,
-          inviterCompany: invitation.proposals.company_profiles?.company_name || 'Your Company',
+          inviterCompany: inviterCompany,
           memberEmail: invitation.memberEmail,
           role: invitation.role,
           rateRange: invitation.rateRange,
@@ -354,8 +367,12 @@ const MyInvitationsView: React.FC = () => {
     }
   };
 
-  const pendingInvitations = invitations.filter((inv) => inv.status === 'invited');
-  const respondedInvitations = invitations.filter((inv) => inv.status !== 'invited');
+  // Combine received and sent invitations for display
+  const allInvitations = [...receivedInvitations, ...sentInvitations];
+  const pendingInvitations = receivedInvitations.filter((inv) => inv.status === 'invited');
+  const respondedInvitations = receivedInvitations.filter((inv) => inv.status !== 'invited');
+  const pendingSentInvitations = sentInvitations.filter((inv) => inv.status === 'invited');
+  const respondedSentInvitations = sentInvitations.filter((inv) => inv.status !== 'invited');
   const pendingConnectionRequests = connectionRequests.filter((req) => req.status === 'pending');
   const respondedConnectionRequests = connectionRequests.filter((req) => req.status !== 'pending');
   const pendingSentRequests = sentConnectionRequests.filter((req) => req.status === 'pending');
@@ -385,9 +402,9 @@ const MyInvitationsView: React.FC = () => {
             }`}
           >
             Proposal Invitations
-            {pendingInvitations.length > 0 && (
+            {(pendingInvitations.length > 0 || pendingSentInvitations.length > 0) && (
               <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                {pendingInvitations.length}
+                {pendingInvitations.length + pendingSentInvitations.length}
               </span>
             )}
           </button>
@@ -433,7 +450,7 @@ const MyInvitationsView: React.FC = () => {
       {/* Proposal Invitations Tab */}
       {activeTab === 'proposals' && (
         <>
-          {invitations.length > 0 && (
+          {(receivedInvitations.length > 0 || sentInvitations.length > 0) && (
             <div className="flex justify-end mb-4">
               <button
                 onClick={handleClearAllInvitations}
@@ -444,7 +461,7 @@ const MyInvitationsView: React.FC = () => {
               </button>
             </div>
           )}
-          {isLoading && invitations.length === 0 ? (
+          {isLoading && receivedInvitations.length === 0 && sentInvitations.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex items-center justify-center py-12">
                 <svg
@@ -607,8 +624,92 @@ const MyInvitationsView: React.FC = () => {
         </div>
       )}
 
+      {/* Sent Invitations Section */}
+      {(pendingSentInvitations.length > 0 || respondedSentInvitations.length > 0) && (
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800">
+              Sent Invitations
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Invitations you've sent to other companies
+            </p>
+          </div>
+          
+          {/* Pending Sent Invitations */}
+          {pendingSentInvitations.length > 0 && (
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">
+                Pending ({pendingSentInvitations.length})
+              </h3>
+              <div className="space-y-3">
+                {pendingSentInvitations.map((invitation) => (
+                  <div
+                    key={invitation.id}
+                    className="px-4 py-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => handleViewAsRecipient(invitation)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {invitation.proposals.title}
+                        </h4>
+                        <p className="text-xs text-gray-600 mt-1">
+                          To: {invitation.memberEmail} • Role: {invitation.role}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Sent {formatDate(invitation.invitedAt)}
+                        </p>
+                      </div>
+                      <span className="text-xs text-blue-600 ml-2">Click to view →</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Responded Sent Invitations */}
+          {respondedSentInvitations.length > 0 && (
+            <div className="px-6 py-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">
+                Responses ({respondedSentInvitations.length})
+              </h3>
+              <div className="space-y-3">
+                {respondedSentInvitations.map((invitation) => (
+                  <div
+                    key={invitation.id}
+                    className="px-4 py-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => handleViewAsRecipient(invitation)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {invitation.proposals.title}
+                        </h4>
+                        <p className="text-xs text-gray-600 mt-1">
+                          To: {invitation.memberEmail} • Role: {invitation.role}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          {getStatusBadge(invitation.status)}
+                          <span className="text-xs text-gray-500">
+                            Sent {formatDate(invitation.invitedAt)}
+                            {invitation.respondedAt && ` • Responded ${formatDate(invitation.respondedAt)}`}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-xs text-blue-600 ml-2">Click to view →</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Empty State */}
-      {invitations.length === 0 && (
+      {receivedInvitations.length === 0 && sentInvitations.length === 0 && (
         <div className="bg-white rounded-lg shadow-sm p-12 text-center">
           <svg
             className="mx-auto h-12 w-12 text-gray-400"

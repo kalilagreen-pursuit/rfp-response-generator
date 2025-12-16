@@ -414,7 +414,7 @@ export const getInvitationByToken = async (req: Request, res: Response): Promise
 };
 
 /**
- * Get invitations for the authenticated user
+ * Get invitations for the authenticated user (both received and sent)
  * GET /api/team/invitations
  */
 export const getMyInvitations = async (req: Request, res: Response): Promise<void> => {
@@ -442,8 +442,8 @@ export const getMyInvitations = async (req: Request, res: Response): Promise<voi
 
     const userEmail = userData.user.email;
 
-    // Get invitations sent to this email
-    const { data: invitations, error: invitationsError } = await supabase
+    // Get invitations sent TO this user (received invitations)
+    const { data: receivedInvitations, error: receivedError } = await supabase
       .from('proposal_team')
       .select(`
         id,
@@ -464,10 +464,85 @@ export const getMyInvitations = async (req: Request, res: Response): Promise<voi
       .eq('member_email', userEmail)
       .order('invited_at', { ascending: false });
 
-    if (invitationsError) throw invitationsError;
+    if (receivedError) throw receivedError;
+
+    // Get company names for received invitations
+    const receivedWithCompanies = await Promise.all(
+      (receivedInvitations || []).map(async (invitation: any) => {
+        if (invitation.proposals?.user_id) {
+          const { data: profile } = await supabase
+            .from('company_profiles')
+            .select('company_name')
+            .eq('user_id', invitation.proposals.user_id)
+            .single();
+          
+          return {
+            ...invitation,
+            proposals: {
+              ...invitation.proposals,
+              company_profiles: profile ? { company_name: profile.company_name } : null
+            }
+          };
+        }
+        return invitation;
+      })
+    );
+
+    // Get invitations sent BY this user (sent invitations)
+    // Find proposals owned by this user, then get their team invitations
+    const { data: userProposals, error: proposalsError } = await supabase
+      .from('proposals')
+      .select('id')
+      .eq('user_id', req.userId);
+
+    if (proposalsError) throw proposalsError;
+
+    const proposalIds = userProposals?.map(p => p.id) || [];
+
+    let sentInvitations: any[] = [];
+    if (proposalIds.length > 0) {
+      const { data: sent, error: sentError } = await supabase
+        .from('proposal_team')
+        .select(`
+          id,
+          proposal_id,
+          member_email,
+          role,
+          rate_range,
+          status,
+          invited_at,
+          responded_at,
+          proposals!proposal_team_proposal_id_fkey (
+            id,
+            title,
+            status,
+            user_id
+          )
+        `)
+        .in('proposal_id', proposalIds)
+        .order('invited_at', { ascending: false });
+
+      if (sentError) throw sentError;
+      
+      // Get company names for sent invitations (from current user's profile)
+      const { data: currentUserProfile } = await supabase
+        .from('company_profiles')
+        .select('company_name')
+        .eq('user_id', req.userId)
+        .single();
+
+      sentInvitations = (sent || []).map((invitation: any) => ({
+        ...invitation,
+        proposals: {
+          ...invitation.proposals,
+          company_profiles: currentUserProfile ? { company_name: currentUserProfile.company_name } : null
+        }
+      }));
+    }
 
     res.json({
-      invitations: invitations || []
+      receivedInvitations: receivedWithCompanies || [],
+      sentInvitations: sentInvitations || []
     });
   } catch (error) {
     console.error('Get my invitations error:', error);
