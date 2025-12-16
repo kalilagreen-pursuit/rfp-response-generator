@@ -201,4 +201,212 @@ router.delete('/team-invitations', async (_req, res) => {
   }
 });
 
+// Create mock company profile for marketplace (demo/testing)
+router.post('/mock-company', async (_req, res) => {
+  try {
+    const companyName = 'PC Coggins Inc Lawyer and Compliance';
+    const email = 'contact@pccoggins.com';
+    
+    // Check if company already exists
+    const { data: existingProfile } = await supabase
+      .from('company_profiles')
+      .select('id, company_name')
+      .eq('company_name', companyName)
+      .maybeSingle();
+
+    if (existingProfile) {
+      // Update existing profile to be public
+      const { error: updateError } = await supabase
+        .from('company_profiles')
+        .update({
+          visibility: 'public',
+          profile_strength: 75,
+          industry: 'Legal & Compliance',
+          contact_info: {
+            email: email,
+            location: 'New York, NY',
+            website: 'https://www.pccoggins.com',
+            phone: '+1 (212) 555-0100',
+            capabilities: [
+              'Legal Compliance',
+              'Regulatory Affairs',
+              'Risk Management',
+              'Corporate Governance',
+              'Contract Review',
+              'Policy Development'
+            ]
+          }
+        })
+        .eq('id', existingProfile.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      return res.json({
+        status: 'success',
+        message: 'Mock company profile updated',
+        profile: {
+          id: existingProfile.id,
+          company_name: companyName,
+          visibility: 'public'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Create a test user for this company
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: email,
+      password: 'Demo123!',
+      email_confirm: true,
+      user_metadata: {
+        full_name: 'PC Coggins Admin'
+      }
+    });
+
+    if (authError) {
+      // If user already exists, try to find them
+      if (authError.message.includes('already registered')) {
+        const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+        if (listError) throw listError;
+        
+        const existingUser = users.find(u => u.email === email);
+        if (!existingUser) {
+          throw new Error('User exists but could not be found');
+        }
+
+        // Check if profile already exists for this user
+        const { data: userProfile } = await supabase
+          .from('company_profiles')
+          .select('id')
+          .eq('user_id', existingUser.id)
+          .maybeSingle();
+
+        if (userProfile) {
+          // Update existing profile
+          const { error: updateError } = await supabase
+            .from('company_profiles')
+            .update({
+              company_name: companyName,
+              visibility: 'public',
+              profile_strength: 75,
+              industry: 'Legal & Compliance',
+              contact_info: {
+                email: email,
+                location: 'New York, NY',
+                website: 'https://www.pccoggins.com',
+                phone: '+1 (212) 555-0100',
+                capabilities: [
+                  'Legal Compliance',
+                  'Regulatory Affairs',
+                  'Risk Management',
+                  'Corporate Governance',
+                  'Contract Review',
+                  'Policy Development'
+                ]
+              }
+            })
+            .eq('id', userProfile.id);
+
+          if (updateError) throw updateError;
+
+          return res.json({
+            status: 'success',
+            message: 'Mock company profile updated',
+            profile: {
+              id: userProfile.id,
+              company_name: companyName,
+              visibility: 'public'
+            },
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Create profile for existing user
+        const { data: profileData, error: profileError } = await supabase
+          .from('company_profiles')
+          .insert({
+            user_id: existingUser.id,
+            company_name: companyName,
+            visibility: 'public',
+            profile_strength: 75,
+            industry: 'Legal & Compliance',
+            contact_info: {
+              email: email,
+              location: 'New York, NY',
+              website: 'https://www.pccoggins.com',
+              phone: '+1 (212) 555-0100',
+              capabilities: [
+                'Legal Compliance',
+                'Regulatory Affairs',
+                'Risk Management',
+                'Corporate Governance',
+                'Contract Review',
+                'Policy Development'
+              ]
+            }
+          })
+          .select()
+          .single();
+
+        if (profileError) throw profileError;
+
+        return res.json({
+          status: 'success',
+          message: 'Mock company profile created',
+          profile: profileData,
+          timestamp: new Date().toISOString()
+        });
+      }
+      throw authError;
+    }
+
+    const userId = authData.user.id;
+
+    // Create company profile
+    const { data: profileData, error: profileError } = await supabase
+      .from('company_profiles')
+      .insert({
+        user_id: userId,
+        company_name: companyName,
+        visibility: 'public',
+        profile_strength: 75,
+        industry: 'Legal & Compliance',
+        contact_info: {
+          email: email,
+          location: 'New York, NY',
+          website: 'https://www.pccoggins.com',
+          phone: '+1 (212) 555-0100',
+          capabilities: [
+            'Legal Compliance',
+            'Regulatory Affairs',
+            'Risk Management',
+            'Corporate Governance',
+            'Contract Review',
+            'Policy Development'
+          ]
+        }
+      })
+      .select()
+      .single();
+
+    if (profileError) throw profileError;
+
+    res.json({
+      status: 'success',
+      message: 'Mock company profile created',
+      profile: profileData,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Create mock company error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to create mock company profile',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export default router;
