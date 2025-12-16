@@ -27,8 +27,10 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 async function createPCCoggins() {
   console.log('🌱 Creating PC Coggins Inc Lawyer and Compliance...\n');
 
-  const companyName = 'PC Coggins Inc Lawyer and Compliance';
+  const companyName = 'PC Coggins Inc.';
   const email = 'contact@pccoggins.com';
+  const contactPerson = 'Patrick Coggins';
+  const contactTitle = 'Lawyer/Compliance Officer';
 
   try {
     // Check if company already exists
@@ -52,6 +54,8 @@ async function createPCCoggins() {
             location: 'New York, NY',
             website: 'https://www.pccoggins.com',
             phone: '+1 (212) 555-0100',
+            contact_person: contactPerson,
+            contact_title: contactTitle,
             capabilities: [
               'Legal Compliance',
               'Regulatory Affairs',

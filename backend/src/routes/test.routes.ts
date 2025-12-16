@@ -204,8 +204,10 @@ router.delete('/team-invitations', async (_req, res) => {
 // Create mock company profile for marketplace (demo/testing)
 router.post('/mock-company', async (_req, res) => {
   try {
-    const companyName = 'PC Coggins Inc Lawyer and Compliance';
+    const companyName = 'PC Coggins Inc.';
     const email = 'contact@pccoggins.com';
+    const contactPerson = 'Patrick Coggins';
+    const contactTitle = 'Lawyer/Compliance Officer';
     
     // Check if company already exists
     const { data: existingProfile } = await supabase
@@ -227,6 +229,8 @@ router.post('/mock-company', async (_req, res) => {
             location: 'New York, NY',
             website: 'https://www.pccoggins.com',
             phone: '+1 (212) 555-0100',
+            contact_person: contactPerson,
+            contact_title: contactTitle,
             capabilities: [
               'Legal Compliance',
               'Regulatory Affairs',
@@ -337,6 +341,8 @@ router.post('/mock-company', async (_req, res) => {
               location: 'New York, NY',
               website: 'https://www.pccoggins.com',
               phone: '+1 (212) 555-0100',
+              contact_person: contactPerson,
+              contact_title: contactTitle,
               capabilities: [
                 'Legal Compliance',
                 'Regulatory Affairs',
