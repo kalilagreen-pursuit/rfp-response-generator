@@ -301,6 +301,8 @@ router.post('/mock-company', async (_req, res) => {
                 location: 'New York, NY',
                 website: 'https://www.pccoggins.com',
                 phone: '+1 (212) 555-0100',
+                contact_person: contactPerson,
+                contact_title: contactTitle,
                 capabilities: [
                   'Legal Compliance',
                   'Regulatory Affairs',
@@ -384,6 +386,8 @@ router.post('/mock-company', async (_req, res) => {
           location: 'New York, NY',
           website: 'https://www.pccoggins.com',
           phone: '+1 (212) 555-0100',
+          contact_person: contactPerson,
+          contact_title: contactTitle,
           capabilities: [
             'Legal Compliance',
             'Regulatory Affairs',
