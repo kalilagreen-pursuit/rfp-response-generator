@@ -543,7 +543,7 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
         const trackingId = trackingResponse.tracking?.id;
 
         // Call the download function with the folder that has the correct ID
-        onDownloadPdf(folderForDownload);
+        await onDownloadPdf(folderForDownload);
 
         // Complete the tracking immediately after initiating download
         if (trackingId) {
@@ -553,11 +553,16 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
       } catch (error) {
         console.error('[ProposalCoPilot] Failed to track export:', error);
         // Still proceed with download even if tracking fails
-        onDownloadPdf(folderForDownload);
+        try {
+          await onDownloadPdf(folderForDownload);
+        } catch (downloadError) {
+          console.error('[ProposalCoPilot] Download failed:', downloadError);
+          throw downloadError;
+        }
       }
     } else {
       // If not synced/authenticated, just download with current folder
-      onDownloadPdf(folderForDownload);
+      await onDownloadPdf(folderForDownload);
     }
   };
 
