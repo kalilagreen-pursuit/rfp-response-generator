@@ -524,20 +524,50 @@ export const getMyInvitations = async (req: Request, res: Response): Promise<voi
 
       if (sentError) throw sentError;
       
-      // Get company names for sent invitations (from current user's profile)
-      const { data: currentUserProfile } = await supabase
-        .from('company_profiles')
-        .select('company_name')
-        .eq('user_id', req.userId)
-        .single();
+      // Get company names for sent invitations
+      // For each sent invitation, look up the recipient's company name by their email
+      const sentWithCompanies = await Promise.all(
+        (sent || []).map(async (invitation: any) => {
+          // Get inviter company name (current user)
+          const { data: currentUserProfile } = await supabase
+            .from('company_profiles')
+            .select('company_name')
+            .eq('user_id', req.userId)
+            .single();
 
-      sentInvitations = (sent || []).map((invitation: any) => ({
-        ...invitation,
-        proposals: {
-          ...invitation.proposals,
-          company_profiles: currentUserProfile ? { company_name: currentUserProfile.company_name } : null
-        }
-      }));
+          // Get recipient company name by looking up user by email
+          let recipientCompanyName: string | null = null;
+          try {
+            // Find user by email
+            const { data: { users } } = await supabase.auth.admin.listUsers();
+            const recipientUser = users?.find(u => u.email === invitation.member_email);
+            
+            if (recipientUser) {
+              // Get recipient's company profile
+              const { data: recipientProfile } = await supabase
+                .from('company_profiles')
+                .select('company_name')
+                .eq('user_id', recipientUser.id)
+                .single();
+              
+              recipientCompanyName = recipientProfile?.company_name || null;
+            }
+          } catch (err) {
+            console.warn(`Could not find company for email ${invitation.member_email}:`, err);
+          }
+
+          return {
+            ...invitation,
+            proposals: {
+              ...invitation.proposals,
+              company_profiles: currentUserProfile ? { company_name: currentUserProfile.company_name } : null
+            },
+            recipient_company_name: recipientCompanyName
+          };
+        })
+      );
+
+      sentInvitations = sentWithCompanies;
     }
 
     res.json({

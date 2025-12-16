@@ -12,6 +12,7 @@ interface Invitation {
   status: 'invited' | 'accepted' | 'declined';
   invitedAt: string;
   respondedAt?: string;
+  recipient_company_name?: string | null;
   proposals: {
     id: string;
     title: string;
@@ -655,7 +656,7 @@ const MyInvitationsView: React.FC = () => {
                           {invitation.proposals.title}
                         </h4>
                         <p className="text-xs text-gray-600 mt-1">
-                          To: {invitation.memberEmail} • Role: {invitation.role}
+                          To: {invitation.recipient_company_name || invitation.memberEmail} • Role: {invitation.role}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           Sent {formatDate(invitation.invitedAt)}
@@ -688,7 +689,7 @@ const MyInvitationsView: React.FC = () => {
                           {invitation.proposals.title}
                         </h4>
                         <p className="text-xs text-gray-600 mt-1">
-                          To: {invitation.memberEmail} • Role: {invitation.role}
+                          To: {invitation.recipient_company_name || invitation.memberEmail} • Role: {invitation.role}
                         </p>
                         <div className="flex items-center gap-2 mt-2">
                           {getStatusBadge(invitation.status)}
