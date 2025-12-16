@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { supabaseAnon } from '../utils/supabase.js';
+import { supabaseAnon, supabase } from '../utils/supabase.js';
 import { testGeminiConnection } from '../services/gemini.service.js';
 
 const router = Router();
@@ -88,6 +88,114 @@ router.get('/gemini', async (_req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Failed to test Gemini API',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Clear all connection requests (for demo/testing)
+router.delete('/connection-requests', async (_req, res) => {
+  try {
+    // Get count before deletion
+    const { count: beforeCount } = await supabase
+      .from('connection_requests')
+      .select('*', { count: 'exact', head: true });
+
+    // Get all connection request IDs
+    const { data: allRequests, error: selectError } = await supabase
+      .from('connection_requests')
+      .select('id');
+
+    if (selectError) {
+      throw selectError;
+    }
+
+    // Delete all connection requests (Supabase requires a filter, so delete each one)
+    if (allRequests && allRequests.length > 0) {
+      // Delete in batches to avoid overwhelming the database
+      const batchSize = 50;
+      for (let i = 0; i < allRequests.length; i += batchSize) {
+        const batch = allRequests.slice(i, i + batchSize);
+        const deletePromises = batch.map(request =>
+          supabase
+            .from('connection_requests')
+            .delete()
+            .eq('id', request.id)
+        );
+        await Promise.all(deletePromises);
+      }
+    }
+
+    // Get count after deletion
+    const { count: afterCount } = await supabase
+      .from('connection_requests')
+      .select('*', { count: 'exact', head: true });
+
+    res.json({
+      status: 'success',
+      message: 'All connection requests cleared',
+      deletedCount: beforeCount || 0,
+      remainingCount: afterCount || 0,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to clear connection requests',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Clear all team invitations (for demo/testing)
+router.delete('/team-invitations', async (_req, res) => {
+  try {
+    // Get count before deletion
+    const { count: beforeCount } = await supabase
+      .from('proposal_team')
+      .select('*', { count: 'exact', head: true });
+
+    // Get all team invitation IDs
+    const { data: allInvitations, error: selectError } = await supabase
+      .from('proposal_team')
+      .select('id');
+
+    if (selectError) {
+      throw selectError;
+    }
+
+    // Delete all team invitations (Supabase requires a filter, so delete each one)
+    if (allInvitations && allInvitations.length > 0) {
+      // Delete in batches to avoid overwhelming the database
+      const batchSize = 50;
+      for (let i = 0; i < allInvitations.length; i += batchSize) {
+        const batch = allInvitations.slice(i, i + batchSize);
+        const deletePromises = batch.map(invitation =>
+          supabase
+            .from('proposal_team')
+            .delete()
+            .eq('id', invitation.id)
+        );
+        await Promise.all(deletePromises);
+      }
+    }
+
+    // Get count after deletion
+    const { count: afterCount } = await supabase
+      .from('proposal_team')
+      .select('*', { count: 'exact', head: true });
+
+    res.json({
+      status: 'success',
+      message: 'All team invitations cleared',
+      deletedCount: beforeCount || 0,
+      remainingCount: afterCount || 0,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to clear team invitations',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }

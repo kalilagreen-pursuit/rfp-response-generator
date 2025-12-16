@@ -513,14 +513,37 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
   };
 
   const handleDownloadWithTracking = async () => {
+    // If sync is in progress, wait a bit for it to complete
+    if (isSyncing) {
+      console.log('[ProposalCoPilot] Sync in progress, waiting...');
+      addToast('Syncing proposal, please wait...', 'info');
+      
+      // Wait up to 3 seconds for sync to complete
+      let waitCount = 0;
+      while (isSyncing && waitCount < 30) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        waitCount++;
+      }
+    }
+    
+    // Use synced ID if available, otherwise use folder ID
+    const proposalIdToUse = syncedProposalId || projectFolder.id;
+    
+    console.log('[ProposalCoPilot] Downloading with proposal ID:', proposalIdToUse);
+    console.log('[ProposalCoPilot] Original folder ID:', projectFolder.id);
+    console.log('[ProposalCoPilot] Synced proposal ID:', syncedProposalId);
+    
+    // Create a folder object with the correct ID for download
+    const folderForDownload = { ...projectFolder, id: proposalIdToUse };
+    
     // Track the export stage
-    if (syncedProposalId && syncService.isAuthenticated()) {
+    if (proposalIdToUse && syncService.isAuthenticated()) {
       try {
-        const trackingResponse = await analyticsAPI.trackStageStart(syncedProposalId, 'export');
+        const trackingResponse = await analyticsAPI.trackStageStart(proposalIdToUse, 'export');
         const trackingId = trackingResponse.tracking?.id;
 
-        // Call the original download function
-        onDownloadPdf(projectFolder);
+        // Call the download function with the folder that has the correct ID
+        onDownloadPdf(folderForDownload);
 
         // Complete the tracking immediately after initiating download
         if (trackingId) {
@@ -530,11 +553,11 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
       } catch (error) {
         console.error('[ProposalCoPilot] Failed to track export:', error);
         // Still proceed with download even if tracking fails
-        onDownloadPdf(projectFolder);
+        onDownloadPdf(folderForDownload);
       }
     } else {
-      // If not synced/authenticated, just download
-      onDownloadPdf(projectFolder);
+      // If not synced/authenticated, just download with current folder
+      onDownloadPdf(folderForDownload);
     }
   };
 
@@ -723,6 +746,8 @@ const ProposalCoPilotModal: React.FC<ProposalCoPilotModalProps> = ({ projectFold
                         ) : (
                             <TeamMembersList
                                 proposalId={syncedProposalId || projectFolder.id}
+                                proposalTitle={projectFolder.proposal.projectName}
+                                inviterCompany={profileData.companyName || 'Your Company'}
                                 isOwner={true}
                                 onInviteClick={() => setIsInviteModalOpen(true)}
                                 refreshTrigger={teamRefreshTrigger}

@@ -743,10 +743,12 @@ export const exportProposalPdf = async (req: Request, res: Response) => {
       .update({ exported_at: new Date().toISOString() })
       .eq('id', id);
 
-    // Send file
+    // Send file with proper headers
     const filename = `${proposal.title.replace(/[^a-z0-9]/gi, '_')}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length.toString());
+    res.setHeader('Cache-Control', 'no-cache');
     res.send(buffer);
   } catch (error) {
     console.error('Export PDF error:', error);

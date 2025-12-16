@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { teamAPI, networkAPI } from '../services/api';
+import { teamAPI, networkAPI, proposalsAPI, getAuthToken } from '../services/api';
+import DemoInvitationModal from './DemoInvitationModal';
+import { useAppContext } from '../contexts/AppContext';
 
 interface Invitation {
   id: string;
@@ -44,6 +46,7 @@ interface ConnectionRequest {
 }
 
 const MyInvitationsView: React.FC = () => {
+  const { addToast } = useAppContext();
   const [activeTab, setActiveTab] = useState<'proposals' | 'connections'>('proposals');
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [connectionRequests, setConnectionRequests] = useState<ConnectionRequest[]>([]);
@@ -53,6 +56,19 @@ const MyInvitationsView: React.FC = () => {
   const [error, setError] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [processingConnectionId, setProcessingConnectionId] = useState<string | null>(null);
+  const [demoModalOpen, setDemoModalOpen] = useState(false);
+  const [selectedInvitation, setSelectedInvitation] = useState<{
+    id: string;
+    proposalId: string;
+    proposalTitle: string;
+    inviterCompany: string;
+    memberEmail: string;
+    role: string;
+    rateRange?: { min: number; max: number };
+    invitedAt: string;
+  } | null>(null);
+  const [isClearingConnections, setIsClearingConnections] = useState(false);
+  const [isClearingInvitations, setIsClearingInvitations] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'proposals') {
@@ -231,6 +247,88 @@ const MyInvitationsView: React.FC = () => {
     });
   };
 
+  const handleViewAsRecipient = async (invitation: Invitation) => {
+    try {
+      // Fetch proposal details
+      const proposalResponse = await proposalsAPI.get(invitation.proposal_id);
+      if (proposalResponse.proposal) {
+        setSelectedInvitation({
+          id: invitation.id,
+          proposalId: invitation.proposal_id,
+          proposalTitle: invitation.proposals.title,
+          inviterCompany: invitation.proposals.company_profiles?.company_name || 'Your Company',
+          memberEmail: invitation.memberEmail,
+          role: invitation.role,
+          rateRange: invitation.rateRange,
+          invitedAt: invitation.invitedAt,
+        });
+        setDemoModalOpen(true);
+      }
+    } catch (err: any) {
+      addToast('Failed to load invitation details', 'error');
+    }
+  };
+
+  const handleClearAllConnections = async () => {
+    if (!window.confirm('Are you sure you want to clear all connection requests? This action cannot be undone.')) {
+      return;
+    }
+
+    setIsClearingConnections(true);
+    try {
+      const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001/api';
+      const authToken = getAuthToken();
+
+      const response = await fetch(`${API_BASE_URL}/test/connection-requests`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to clear connection requests');
+      }
+
+      addToast('All connection requests cleared', 'success');
+      await loadConnectionRequests();
+    } catch (err: any) {
+      addToast(err.message || 'Failed to clear connection requests', 'error');
+    } finally {
+      setIsClearingConnections(false);
+    }
+  };
+
+  const handleClearAllInvitations = async () => {
+    if (!window.confirm('Are you sure you want to clear all team invitations? This action cannot be undone.')) {
+      return;
+    }
+
+    setIsClearingInvitations(true);
+    try {
+      const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001/api';
+      const authToken = getAuthToken();
+
+      const response = await fetch(`${API_BASE_URL}/test/team-invitations`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to clear team invitations');
+      }
+
+      addToast('All team invitations cleared', 'success');
+      await loadInvitations();
+    } catch (err: any) {
+      addToast(err.message || 'Failed to clear team invitations', 'error');
+    } finally {
+      setIsClearingInvitations(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'accepted':
@@ -335,6 +433,17 @@ const MyInvitationsView: React.FC = () => {
       {/* Proposal Invitations Tab */}
       {activeTab === 'proposals' && (
         <>
+          {invitations.length > 0 && (
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={handleClearAllInvitations}
+                disabled={isClearingInvitations}
+                className="px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-md hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isClearingInvitations ? 'Clearing...' : 'Clear All (Demo)'}
+              </button>
+            </div>
+          )}
           {isLoading && invitations.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex items-center justify-center py-12">
@@ -413,14 +522,30 @@ const MyInvitationsView: React.FC = () => {
                   {/* Action Buttons */}
                   <div className="flex flex-col gap-2">
                     <button
-                      onClick={() => handleAccept(invitation.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewAsRecipient(invitation);
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      title="View what recipient sees"
+                    >
+                      View as Recipient
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAccept(invitation.id);
+                      }}
                       disabled={processingId === invitation.id}
                       className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {processingId === invitation.id ? 'Processing...' : 'Accept'}
                     </button>
                     <button
-                      onClick={() => handleDecline(invitation.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDecline(invitation.id);
+                      }}
                       disabled={processingId === invitation.id}
                       className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -446,7 +571,8 @@ const MyInvitationsView: React.FC = () => {
             {respondedInvitations.map((invitation) => (
               <div
                 key={invitation.id}
-                className="px-6 py-4 hover:bg-gray-50 transition-colors"
+                className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                onClick={() => handleViewAsRecipient(invitation)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
@@ -471,6 +597,7 @@ const MyInvitationsView: React.FC = () => {
                           • Responded {formatDate(invitation.respondedAt)}
                         </span>
                       )}
+                      <span className="text-xs text-blue-600 ml-auto">Click to view as recipient →</span>
                     </div>
                   </div>
                 </div>
@@ -508,6 +635,17 @@ const MyInvitationsView: React.FC = () => {
       {/* Connection Requests Tab */}
       {activeTab === 'connections' && (
         <>
+          {(connectionRequests.length > 0 || sentConnectionRequests.length > 0) && (
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={handleClearAllConnections}
+                disabled={isClearingConnections}
+                className="px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-md hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isClearingConnections ? 'Clearing...' : 'Clear All (Demo)'}
+              </button>
+            </div>
+          )}
           {isLoadingConnections && connectionRequests.length === 0 && sentConnectionRequests.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex items-center justify-center py-12">
@@ -698,8 +836,20 @@ const MyInvitationsView: React.FC = () => {
                 </div>
               )}
             </>
-          )}
+              )}
         </>
+      )}
+
+      {/* Demo Invitation Modal */}
+      {selectedInvitation && (
+        <DemoInvitationModal
+          isOpen={demoModalOpen}
+          onClose={() => {
+            setDemoModalOpen(false);
+            setSelectedInvitation(null);
+          }}
+          invitation={selectedInvitation}
+        />
       )}
     </div>
   );

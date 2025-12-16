@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { profileAPI } from '../services/api';
+import { profileAPI, proposalsAPI } from '../services/api';
 import { UsersIcon, SearchIcon, CodeIcon } from './icons';
 import ProfileDetailModal from './ProfileDetailModal';
+import ProposalSelectorModal from './ProposalSelectorModal';
+import InviteTeamMemberModal from './InviteTeamMemberModal';
 
 interface MarketplaceProfile {
   id: string;
@@ -25,6 +27,17 @@ const MarketplaceView: React.FC = () => {
   const [industryFilter, setIndustryFilter] = useState<string>('');
   const [availableIndustries, setAvailableIndustries] = useState<string[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [isProposalSelectorOpen, setIsProposalSelectorOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<{
+    email?: string;
+    companyName: string;
+    profileId: string;
+  } | null>(null);
+  const [selectedProposal, setSelectedProposal] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   useEffect(() => {
     loadProfiles();
@@ -238,7 +251,7 @@ const MarketplaceView: React.FC = () => {
 
                     {/* Contact Info */}
                     <div className="pt-4 border-t border-gray-200">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mb-2">
                         <div className="text-xs text-gray-500">
                           Profile Strength: {profile.profile_strength}%
                         </div>
@@ -249,6 +262,19 @@ const MarketplaceView: React.FC = () => {
                           View Profile
                         </button>
                       </div>
+                      <button
+                        onClick={() => {
+                          setSelectedCompany({
+                            companyName: profile.company_name,
+                            profileId: profile.id,
+                            email: profile.contact_info?.email || undefined,
+                          });
+                          setIsProposalSelectorOpen(true);
+                        }}
+                        className="w-full mt-2 px-3 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      >
+                        Invite to Proposal
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -263,6 +289,48 @@ const MarketplaceView: React.FC = () => {
         <ProfileDetailModal
           profileId={selectedProfileId}
           onClose={() => setSelectedProfileId(null)}
+          onInviteToProposal={(company) => {
+            setSelectedCompany(company);
+            setIsProposalSelectorOpen(true);
+          }}
+        />
+      )}
+
+      {/* Proposal Selector Modal */}
+      {selectedCompany && (
+        <ProposalSelectorModal
+          isOpen={isProposalSelectorOpen}
+          onClose={() => {
+            setIsProposalSelectorOpen(false);
+            setSelectedCompany(null);
+          }}
+          onSelect={(proposalId, proposalTitle) => {
+            setSelectedProposal({ id: proposalId, title: proposalTitle });
+            setIsProposalSelectorOpen(false);
+            setIsInviteModalOpen(true);
+          }}
+          companyName={selectedCompany.companyName}
+          companyEmail={selectedCompany.email}
+        />
+      )}
+
+      {/* Invite Team Member Modal */}
+      {selectedProposal && selectedCompany && (
+        <InviteTeamMemberModal
+          proposalId={selectedProposal.id}
+          proposalTitle={selectedProposal.title}
+          isOpen={isInviteModalOpen}
+          onClose={() => {
+            setIsInviteModalOpen(false);
+            setSelectedProposal(null);
+            setSelectedCompany(null);
+          }}
+          onInviteSent={() => {
+            setIsInviteModalOpen(false);
+            setSelectedProposal(null);
+            setSelectedCompany(null);
+          }}
+          selectedCompany={selectedCompany}
         />
       )}
     </div>

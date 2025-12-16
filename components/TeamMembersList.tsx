@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { teamAPI } from '../services/api';
+import { teamAPI, proposalsAPI } from '../services/api';
+import DemoInvitationModal from './DemoInvitationModal';
 
 interface TeamMember {
   id: string;
@@ -18,6 +19,8 @@ interface TeamMember {
 
 interface TeamMembersListProps {
   proposalId: string;
+  proposalTitle?: string;
+  inviterCompany?: string;
   isOwner: boolean;
   onInviteClick: () => void;
   refreshTrigger?: number;
@@ -25,6 +28,8 @@ interface TeamMembersListProps {
 
 const TeamMembersList: React.FC<TeamMembersListProps> = ({
   proposalId,
+  proposalTitle,
+  inviterCompany,
   isOwner,
   onInviteClick,
   refreshTrigger = 0,
@@ -32,6 +37,17 @@ const TeamMembersList: React.FC<TeamMembersListProps> = ({
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [demoModalOpen, setDemoModalOpen] = useState(false);
+  const [selectedInvitation, setSelectedInvitation] = useState<{
+    id: string;
+    proposalId: string;
+    proposalTitle: string;
+    inviterCompany: string;
+    memberEmail: string;
+    role: string;
+    rateRange?: { min: number; max: number };
+    invitedAt: string;
+  } | null>(null);
 
   useEffect(() => {
     loadTeamMembers();
@@ -253,31 +269,77 @@ const TeamMembersList: React.FC<TeamMembersListProps> = ({
                   </div>
                 </div>
 
-                {/* Remove Button (Owner Only) */}
+                {/* Action Buttons (Owner Only) */}
                 {isOwner && (
-                  <button
-                    onClick={() => handleRemoveMember(member.id)}
-                    className="ml-4 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                    title="Remove team member"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+                  <div className="ml-4 flex gap-2">
+                    {member.status === 'invited' && (
+                      <button
+                        onClick={() => {
+                          setSelectedInvitation({
+                            id: member.id,
+                            proposalId,
+                            proposalTitle: proposalTitle || 'Project Proposal',
+                            inviterCompany: inviterCompany || 'Your Company',
+                            memberEmail: member.memberEmail,
+                            role: member.role,
+                            rateRange: member.rateRange,
+                            invitedAt: member.invitedAt,
+                          });
+                          setDemoModalOpen(true);
+                        }}
+                        className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                        title="View as recipient"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                          <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleRemoveMember(member.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                      title="Remove team member"
                     >
-                      <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                    </svg>
-                  </button>
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                      </svg>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
           ))
         )}
       </div>
+
+      {/* Demo Invitation Modal */}
+      {selectedInvitation && (
+        <DemoInvitationModal
+          isOpen={demoModalOpen}
+          onClose={() => {
+            setDemoModalOpen(false);
+            setSelectedInvitation(null);
+          }}
+          invitation={selectedInvitation}
+        />
+      )}
     </div>
   );
 };

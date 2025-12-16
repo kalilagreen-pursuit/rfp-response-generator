@@ -5,6 +5,7 @@ import { CloseIcon, UsersIcon, PhoneIcon, EmailIcon, CodeIcon } from './icons';
 interface ProfileDetailModalProps {
   profileId: string;
   onClose: () => void;
+  onInviteToProposal?: (company: { email?: string; companyName: string; profileId: string }) => void;
 }
 
 interface FullProfile {
@@ -33,7 +34,7 @@ interface FullProfile {
   created_at: string;
 }
 
-const ProfileDetailModal: React.FC<ProfileDetailModalProps> = ({ profileId, onClose }) => {
+const ProfileDetailModal: React.FC<ProfileDetailModalProps> = ({ profileId, onClose, onInviteToProposal }) => {
   const [profile, setProfile] = useState<FullProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -322,23 +323,39 @@ const ProfileDetailModal: React.FC<ProfileDetailModalProps> = ({ profileId, onCl
             Close
           </button>
           {profile && (
-            <button
-              onClick={handleSendConnectionRequest}
-              disabled={isConnecting || connectionSuccess}
-              className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${
-                connectionSuccess
-                  ? 'bg-green-600'
+            <>
+              {onInviteToProposal && (
+                <button
+                  onClick={() => {
+                    onInviteToProposal({
+                      email: profile.contact_info?.email,
+                      companyName: profile.company_name,
+                      profileId: profile.id,
+                    });
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  Invite to Proposal
+                </button>
+              )}
+              <button
+                onClick={handleSendConnectionRequest}
+                disabled={isConnecting || connectionSuccess}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${
+                  connectionSuccess
+                    ? 'bg-green-600'
+                    : isConnecting
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                {connectionSuccess
+                  ? '✓ Connection Request Sent!'
                   : isConnecting
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-red-600 hover:bg-red-700'
-              }`}
-            >
-              {connectionSuccess
-                ? '✓ Connection Request Sent!'
-                : isConnecting
-                ? 'Sending...'
-                : 'Send Connection Request'}
-            </button>
+                  ? 'Sending...'
+                  : 'Send Connection Request'}
+              </button>
+            </>
           )}
         </div>
       </div>

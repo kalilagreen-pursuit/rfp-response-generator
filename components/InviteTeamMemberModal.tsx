@@ -7,6 +7,11 @@ interface InviteTeamMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
   onInviteSent: () => void;
+  selectedCompany?: {
+    email?: string;
+    companyName?: string;
+    profileId?: string;
+  };
 }
 
 const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
@@ -15,14 +20,26 @@ const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
   isOpen,
   onClose,
   onInviteSent,
+  selectedCompany,
 }) => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(selectedCompany?.email || '');
   const [role, setRole] = useState('');
   const [minRate, setMinRate] = useState('');
   const [maxRate, setMaxRate] = useState('');
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Update email when selectedCompany changes or modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      if (selectedCompany?.email) {
+        setEmail(selectedCompany.email);
+      } else if (!selectedCompany) {
+        setEmail('');
+      }
+    }
+  }, [selectedCompany, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +106,8 @@ const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
   };
 
   const resetForm = () => {
-    setEmail('');
+    // Reset to selectedCompany email if available, otherwise empty
+    setEmail(selectedCompany?.email || '');
     setRole('');
     setMinRate('');
     setMaxRate('');
@@ -136,6 +154,14 @@ const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
           <p className="text-sm text-gray-500 mt-1">
             Invite someone to collaborate on: <span className="font-medium">{proposalTitle}</span>
           </p>
+          {selectedCompany?.companyName && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Inviting from Marketplace: <strong>{selectedCompany.companyName}</strong></span>
+            </div>
+          )}
         </div>
 
         {/* Form */}

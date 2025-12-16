@@ -1124,7 +1124,7 @@ export const exportProposalToPdf = async (projectFolder: ProjectFolder, companyN
  * @returns Promise that resolves when download starts
  */
 export const downloadProposalPdfFromBackend = async (proposalId: string, proposalTitle: string): Promise<void> => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001/api';
     const authToken = localStorage.getItem('authToken');
 
     if (!authToken) {
@@ -1139,25 +1139,66 @@ export const downloadProposalPdfFromBackend = async (proposalId: string, proposa
     });
 
     if (!response.ok) {
+        const errorText = await response.text().catch(() => response.statusText);
+        let errorMessage = `Failed to download PDF: ${response.status} ${response.statusText}`;
+        
+        try {
+            const errorJson = JSON.parse(errorText);
+            errorMessage = errorJson.message || errorJson.error || errorMessage;
+        } catch {
+            // Not JSON, use the text as is
+            if (errorText) {
+                errorMessage = errorText.length > 200 ? errorText.substring(0, 200) + '...' : errorText;
+            }
+        }
+        
         if (response.status === 401) {
             throw new Error('Authentication failed. Please log in again.');
         }
         if (response.status === 404) {
-            throw new Error('Proposal not found.');
+            throw new Error('Proposal not found. Make sure the proposal is synced to the backend.');
         }
-        throw new Error(`Failed to download PDF: ${response.statusText}`);
+        throw new Error(errorMessage);
+    }
+
+    // Check if response is actually a PDF
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/pdf')) {
+        const errorText = await response.text().catch(() => 'Invalid response format');
+        throw new Error(`Server returned non-PDF content: ${errorText.substring(0, 100)}`);
     }
 
     // Download the PDF
     const blob = await response.blob();
+    
+    // Verify blob is not empty
+    if (blob.size === 0) {
+        throw new Error('Downloaded PDF file is empty');
+    }
+
+    // Create download link
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Proposal - ${proposalTitle.replace(/\s/g, '_')}.pdf`;
+    // Sanitize filename - remove invalid characters
+    const sanitizedTitle = proposalTitle.replace(/[^a-z0-9\s_-]/gi, '').replace(/\s+/g, '_');
+    a.download = `Proposal_${sanitizedTitle}.pdf`;
+    a.style.display = 'none';
+    
+    // Append to body, click, then remove
     document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    
+    // Use setTimeout to ensure the element is in the DOM before clicking
+    setTimeout(() => {
+        a.click();
+        // Clean up after a short delay
+        setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+            if (document.body.contains(a)) {
+                document.body.removeChild(a);
+            }
+        }, 100);
+    }, 0);
 };
 
 

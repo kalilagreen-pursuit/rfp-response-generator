@@ -148,15 +148,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         setIsLoading(true);
         try {
-            // Load proposals
-            const proposalsResponse = await proposalsAPI.list();
+            // Load proposals and profile in parallel for faster loading
+            const [proposalsResponse, profileResponse] = await Promise.all([
+                proposalsAPI.list(),
+                profileAPI.get()
+            ]);
+
+            // Process proposals
             if (proposalsResponse.proposals) {
                 const folders = proposalsResponse.proposals.map(backendToProjectFolder);
                 setProjectFolders(folders);
             }
 
-            // Load profile
-            const profileResponse = await profileAPI.get();
+            // Process profile
             if (profileResponse.profile) {
                 const profile = profileResponse.profile;
                 const contactInfo = profile.contact_info || {};
@@ -227,7 +231,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 } else {
                     // Create new - we need to handle this differently since backend expects rfpId
                     // For now, we'll create a proposal directly with the content
-                    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/proposals`, {
+                    const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:3001/api'}/proposals`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

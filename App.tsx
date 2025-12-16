@@ -1,14 +1,11 @@
 
 
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import type { ProjectFolder, Scorecard, ProposalTemplate, View, SalesStage, IndustryPlaybook, ProfileDocument } from './types';
 import Header from './components/Header';
 import RfpUpload, { RfpQueueItem } from './components/RfpUpload';
 import ProjectFolderList from './components/ProposalList';
-import ProposalCoPilotModal from './components/ProposalCoPilotModal';
-import ScorecardModal from './components/ScorecardModal';
-import SlideshowModal from './components/SlideshowModal';
 import { generateProposal, generateScorecard, generateSlideshow, generateVideoScript, generateStoryboardImage } from '@/services/geminiService';
 import ResourceEditor from './components/ResourceEditor';
 import Profile from './components/Profile';
@@ -20,19 +17,24 @@ import { proposalsAPI, getAuthToken } from './services/api';
 import ToastContainer from './components/ToastContainer';
 import OnboardingTour from './components/OnboardingTour';
 import Sidebar from './components/Sidebar';
-import CRMView from './components/CRMView';
 import { extractTextFromFile, fileToDataUrl } from './utils/fileParser';
 import DashboardView from './components/DashboardView';
-import CreativeStudioView from './components/CreativeStudioView';
-import EmailComposerModal from './components/EmailComposerModal';
-import RfpViewerModal from './components/RfpViewerModal';
-import WhitepaperStudioView from './components/WhitepaperStudioView';
-import IndustryPlaybookEditor from './components/IndustryPlaybookEditor';
-import DocumentViewerModal from './components/DocumentViewerModal';
-import MyInvitationsView from './components/MyInvitationsView';
-import MarketplaceView from './components/MarketplaceView';
 import ErrorBoundary from './components/ErrorBoundary';
-import QRCodeManager from './components/QRCodeManager';
+
+// Lazy load heavy components for better initial load performance
+const ProposalCoPilotModal = lazy(() => import('./components/ProposalCoPilotModal'));
+const ScorecardModal = lazy(() => import('./components/ScorecardModal'));
+const SlideshowModal = lazy(() => import('./components/SlideshowModal'));
+const CRMView = lazy(() => import('./components/CRMView'));
+const CreativeStudioView = lazy(() => import('./components/CreativeStudioView'));
+const EmailComposerModal = lazy(() => import('./components/EmailComposerModal'));
+const RfpViewerModal = lazy(() => import('./components/RfpViewerModal'));
+const WhitepaperStudioView = lazy(() => import('./components/WhitepaperStudioView'));
+const IndustryPlaybookEditor = lazy(() => import('./components/IndustryPlaybookEditor'));
+const DocumentViewerModal = lazy(() => import('./components/DocumentViewerModal'));
+const MyInvitationsView = lazy(() => import('./components/MyInvitationsView'));
+const MarketplaceView = lazy(() => import('./components/MarketplaceView'));
+const QRCodeManager = lazy(() => import('./components/QRCodeManager'));
 
 const allSalesStages: SalesStage[] = ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Closed-Won', 'Closed-Lost'];
 
@@ -400,17 +402,20 @@ const App: React.FC = () => {
             if (isAuthenticated && folder.id && folder.id.length > 10) {
                 // Use backend PDF export (correct MASTER_PROMPT formatting with Liceria branding)
                 console.log('Using backend PDF export for proposal:', folder.id);
+                console.log('Proposal title:', folder.proposal.projectName);
                 await downloadProposalPdfFromBackend(folder.id, folder.proposal.projectName);
                 addToast('PDF downloaded successfully', 'success');
             } else {
                 // Fallback to deprecated frontend export for local-only proposals
                 console.warn('Using deprecated frontend PDF export (proposal not synced to backend)');
+                console.warn('Auth status:', isAuthenticated, 'Folder ID:', folder.id);
                 await exportProposalToPdf(folder, profileData.companyName || 'Your Company');
                 addToast('PDF downloaded successfully (using legacy format)', 'info');
             }
         } catch (error: any) {
-            addToast(`Failed to generate PDF: ${error.message}`, 'error');
-            console.error(error);
+            console.error('PDF download error:', error);
+            const errorMessage = error?.message || 'Unknown error occurred';
+            addToast(`Failed to download PDF: ${errorMessage}`, 'error');
         } finally {
             setIsDownloadingPdf(false);
         }
@@ -462,37 +467,62 @@ const App: React.FC = () => {
                 );
             case 'resources': return <ResourceEditor />;
             case 'profile': return <Profile onViewDocument={handleViewDocument} />;
-            case 'playbooks': return <IndustryPlaybookEditor />;
+            case 'playbooks': 
+                return (
+                    <Suspense fallback={<div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-500"></div></div>}>
+                        <IndustryPlaybookEditor />
+                    </Suspense>
+                );
             case 'calendar': return <CalendarView projects={projectFolders} />;
             case 'creativeStudio':
                 return (
-                    <CreativeStudioView
-                        projects={projectFolders}
-                        onGenerateScript={handleGenerateVideoScript}
-                        isLoading={isLoading}
-                        loadingMessage={loadingMessage}
-                        onUpdateProject={updateProjectFolder}
-                        onGenerateImage={handleGenerateStoryboardImage}
-                    />
+                    <Suspense fallback={<div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-500"></div></div>}>
+                        <CreativeStudioView
+                            projects={projectFolders}
+                            onGenerateScript={handleGenerateVideoScript}
+                            isLoading={isLoading}
+                            loadingMessage={loadingMessage}
+                            onUpdateProject={updateProjectFolder}
+                            onGenerateImage={handleGenerateStoryboardImage}
+                        />
+                    </Suspense>
                 );
             case 'crm':
                 return (
-                    <CRMView 
-                        projects={projectFolders}
-                        updateProjectFolder={updateProjectFolder}
-                        onViewProposal={handleViewProposal}
-                        onViewScorecard={handleViewScorecard}
-                        onGenerateSlideshow={handleGenerateSlideshow}
-                    />
+                    <Suspense fallback={<div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-500"></div></div>}>
+                        <CRMView 
+                            projects={projectFolders}
+                            updateProjectFolder={updateProjectFolder}
+                            onViewProposal={handleViewProposal}
+                            onViewScorecard={handleViewScorecard}
+                            onGenerateSlideshow={handleGenerateSlideshow}
+                        />
+                    </Suspense>
                 );
             case 'whitepaperStudio':
-                return <WhitepaperStudioView projects={projectFolders} />;
+                return (
+                    <Suspense fallback={<div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-500"></div></div>}>
+                        <WhitepaperStudioView projects={projectFolders} />
+                    </Suspense>
+                );
             case 'marketing':
-                return <QRCodeManager />;
+                return (
+                    <Suspense fallback={<div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-500"></div></div>}>
+                        <QRCodeManager />
+                    </Suspense>
+                );
             case 'invitations':
-                return <MyInvitationsView />;
+                return (
+                    <Suspense fallback={<div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-500"></div></div>}>
+                        <MyInvitationsView />
+                    </Suspense>
+                );
             case 'marketplace':
-                return <MarketplaceView />;
+                return (
+                    <Suspense fallback={<div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-500"></div></div>}>
+                        <MarketplaceView />
+                    </Suspense>
+                );
             default: return null;
         }
     };
@@ -518,61 +548,73 @@ const App: React.FC = () => {
                 </div>
                 {selectedProjectForCoPilot && (
                     <ErrorBoundary>
-                        <ProposalCoPilotModal
-                            projectFolder={selectedProjectForCoPilot}
-                            onClose={handleCloseAllAssetModals}
-                            onEmail={handleEmailProposal}
-                            onViewScorecard={handleViewScorecard}
-                            onViewSlideshow={handleGenerateSlideshow}
-                            onUpdateProject={updateProjectFolder}
-                            onDownloadPdf={handleDownloadProposalPdf}
-                            onViewRfp={handleViewRfp}
-                            isDownloadingPdf={isDownloadingPdf}
-                            onRegenerateProposal={handleRegenerateProposal}
-                            isRegeneratingProposal={isRegeneratingProposal}
-                        />
+                        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div></div>}>
+                            <ProposalCoPilotModal
+                                projectFolder={selectedProjectForCoPilot}
+                                onClose={handleCloseAllAssetModals}
+                                onEmail={handleEmailProposal}
+                                onViewScorecard={handleViewScorecard}
+                                onViewSlideshow={handleGenerateSlideshow}
+                                onUpdateProject={updateProjectFolder}
+                                onDownloadPdf={handleDownloadProposalPdf}
+                                onViewRfp={handleViewRfp}
+                                isDownloadingPdf={isDownloadingPdf}
+                                onRegenerateProposal={handleRegenerateProposal}
+                                isRegeneratingProposal={isRegeneratingProposal}
+                            />
+                        </Suspense>
                     </ErrorBoundary>
                 )}
                 {selectedProjectForScorecard && (
-                    <ScorecardModal 
-                        projectFolder={selectedProjectForScorecard}
-                        scorecard={scorecardData} 
-                        isLoading={isGeneratingScorecard} 
-                        onClose={handleCloseAllAssetModals} 
-                        onRegenerate={() => handleViewScorecard(selectedProjectForScorecard, true)} 
-                        isRegenerating={isGeneratingScorecard && isForceRegeneratingScorecard}
-                        onViewProposal={handleViewProposal}
-                        onViewSlideshow={handleGenerateSlideshow}
-                    />
+                    <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div></div>}>
+                        <ScorecardModal 
+                            projectFolder={selectedProjectForScorecard}
+                            scorecard={scorecardData} 
+                            isLoading={isGeneratingScorecard} 
+                            onClose={handleCloseAllAssetModals} 
+                            onRegenerate={() => handleViewScorecard(selectedProjectForScorecard, true)} 
+                            isRegenerating={isGeneratingScorecard && isForceRegeneratingScorecard}
+                            onViewProposal={handleViewProposal}
+                            onViewSlideshow={handleGenerateSlideshow}
+                        />
+                    </Suspense>
                 )}
                 {selectedProjectForSlideshow && (
-                    <SlideshowModal 
-                        projectFolder={selectedProjectForSlideshow} 
-                        isLoading={isGeneratingSlideshow} 
-                        onClose={handleCloseAllAssetModals} 
-                        onRegenerate={() => handleGenerateSlideshow(selectedProjectForSlideshow, true)} 
-                        isRegenerating={isGeneratingSlideshow && isForceRegeneratingSlideshow}
-                        onViewProposal={handleViewProposal}
-                        onViewScorecard={handleViewScorecard}
-                    />
+                    <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div></div>}>
+                        <SlideshowModal 
+                            projectFolder={selectedProjectForSlideshow} 
+                            isLoading={isGeneratingSlideshow} 
+                            onClose={handleCloseAllAssetModals} 
+                            onRegenerate={() => handleGenerateSlideshow(selectedProjectForSlideshow, true)} 
+                            isRegenerating={isGeneratingSlideshow && isForceRegeneratingSlideshow}
+                            onViewProposal={handleViewProposal}
+                            onViewScorecard={handleViewScorecard}
+                        />
+                    </Suspense>
                 )}
                  {selectedProjectForEmail && (
-                    <EmailComposerModal
-                        projectFolder={selectedProjectForEmail}
-                        onClose={handleCloseAllAssetModals}
-                    />
+                    <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div></div>}>
+                        <EmailComposerModal
+                            projectFolder={selectedProjectForEmail}
+                            onClose={handleCloseAllAssetModals}
+                        />
+                    </Suspense>
                 )}
                 {projectForRfpView && (
-                    <RfpViewerModal
-                        projectFolder={projectForRfpView}
-                        onClose={() => setProjectForRfpView(null)}
-                    />
+                    <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div></div>}>
+                        <RfpViewerModal
+                            projectFolder={projectForRfpView}
+                            onClose={() => setProjectForRfpView(null)}
+                        />
+                    </Suspense>
                 )}
                 {documentToView && (
-                    <DocumentViewerModal
-                        document={documentToView}
-                        onClose={() => setDocumentToView(null)}
-                    />
+                    <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div></div>}>
+                        <DocumentViewerModal
+                            document={documentToView}
+                            onClose={() => setDocumentToView(null)}
+                        />
+                    </Suspense>
                 )}
                 <ToastContainer />
                 <OnboardingTour currentView={currentView} onViewChange={handleViewChange} />
