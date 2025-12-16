@@ -127,7 +127,7 @@ const ProposalSelectorModal: React.FC<ProposalSelectorModalProps> = ({
                 <button
                   key={proposal.id}
                   onClick={() => handleSelect(proposal)}
-                  className="w-full text-left px-4 py-3 border border-gray-200 rounded-md hover:bg-gray-50 hover:border-red-300 transition-colors"
+                  className="w-full text-left px-4 py-3 border border-gray-200 rounded-md hover:bg-gray-50 hover:border-blue-300 transition-colors"
                 >
                   <div className="font-medium text-gray-900">{proposal.title}</div>
                   <div className="text-xs text-gray-500 mt-1">
