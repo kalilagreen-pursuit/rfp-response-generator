@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { profileAPI, proposalsAPI } from '../services/api';
+import { profileAPI, proposalsAPI, teamAPI } from '../services/api';
 import { UsersIcon, SearchIcon, CodeIcon } from './icons';
 import ProfileDetailModal from './ProfileDetailModal';
-import ProposalSelectorModal from './ProposalSelectorModal';
-import InviteTeamMemberModal from './InviteTeamMemberModal';
+import { useAppContext } from '../contexts/AppContext';
 
 interface MarketplaceProfile {
   id: string;
@@ -14,6 +13,7 @@ interface MarketplaceProfile {
     capabilities?: string[];
     website?: string;
     phone?: string;
+    email?: string;
   };
   profile_strength: number;
   created_at: string;
@@ -27,17 +27,8 @@ const MarketplaceView: React.FC = () => {
   const [industryFilter, setIndustryFilter] = useState<string>('');
   const [availableIndustries, setAvailableIndustries] = useState<string[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
-  const [isProposalSelectorOpen, setIsProposalSelectorOpen] = useState(false);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState<{
-    email?: string;
-    companyName: string;
-    profileId: string;
-  } | null>(null);
-  const [selectedProposal, setSelectedProposal] = useState<{
-    id: string;
-    title: string;
-  } | null>(null);
+  const [invitingCompanyId, setInvitingCompanyId] = useState<string | null>(null);
+  const { addToast } = useAppContext();
 
   useEffect(() => {
     loadProfiles();
@@ -81,6 +72,55 @@ const MarketplaceView: React.FC = () => {
     if (strength >= 60) return 'Good';
     if (strength >= 40) return 'Fair';
     return 'Basic';
+  };
+
+  const handleAutoInvite = async (profile: MarketplaceProfile) => {
+    if (!profile.contact_info?.email) {
+      addToast('This company does not have an email address on file', 'error');
+      return;
+    }
+
+    setInvitingCompanyId(profile.id);
+
+    try {
+      // Get user's proposals
+      const proposalsResponse = await proposalsAPI.list();
+      const proposals = proposalsResponse.proposals || [];
+
+      if (proposals.length === 0) {
+        addToast('You need to create a proposal first before inviting team members', 'error');
+        setInvitingCompanyId(null);
+        return;
+      }
+
+      // Use the most recent proposal (first in list, as they're sorted by created_at desc)
+      const proposal = proposals[0];
+
+      // Auto-send invitation with default values
+      const inviteData = {
+        proposalId: proposal.id,
+        memberEmail: profile.contact_info.email,
+        role: 'Team Member', // Default role
+        rateRange: {
+          min: 100,
+          max: 150,
+        },
+        message: `Hi ${profile.company_name}, I'd like to invite you to collaborate on "${proposal.title}". Looking forward to working together!`,
+      };
+
+      const response = await teamAPI.invite(inviteData);
+
+      if (response.error) {
+        addToast(response.message || 'Failed to send invitation', 'error');
+      } else {
+        addToast(`Invitation sent to ${profile.company_name} for "${proposal.title}"`, 'success');
+      }
+    } catch (err: any) {
+      console.error('Auto-invite error:', err);
+      addToast(err.message || 'Failed to send invitation', 'error');
+    } finally {
+      setInvitingCompanyId(null);
+    }
   };
 
   return (
@@ -263,17 +303,21 @@ const MarketplaceView: React.FC = () => {
                         </button>
                       </div>
                       <button
-                        onClick={() => {
-                          setSelectedCompany({
-                            companyName: profile.company_name,
-                            profileId: profile.id,
-                            email: profile.contact_info?.email || undefined,
-                          });
-                          setIsProposalSelectorOpen(true);
-                        }}
-                        className="w-full mt-2 px-3 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        onClick={() => handleAutoInvite(profile)}
+                        disabled={invitingCompanyId === profile.id}
+                        className="w-full mt-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
-                        Invite to Proposal
+                        {invitingCompanyId === profile.id ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Sending...
+                          </>
+                        ) : (
+                          'Invite to Proposal'
+                        )}
                       </button>
                     </div>
                   </div>
@@ -289,48 +333,43 @@ const MarketplaceView: React.FC = () => {
         <ProfileDetailModal
           profileId={selectedProfileId}
           onClose={() => setSelectedProfileId(null)}
-          onInviteToProposal={(company) => {
-            setSelectedCompany(company);
-            setIsProposalSelectorOpen(true);
-          }}
-        />
-      )}
+          onInviteToProposal={async (company) => {
+            // Auto-invite when clicked from profile modal
+            if (company.email) {
+              try {
+                const proposalsResponse = await proposalsAPI.list();
+                const proposals = proposalsResponse.proposals || [];
 
-      {/* Proposal Selector Modal */}
-      {selectedCompany && (
-        <ProposalSelectorModal
-          isOpen={isProposalSelectorOpen}
-          onClose={() => {
-            setIsProposalSelectorOpen(false);
-            setSelectedCompany(null);
-          }}
-          onSelect={(proposalId, proposalTitle) => {
-            setSelectedProposal({ id: proposalId, title: proposalTitle });
-            setIsProposalSelectorOpen(false);
-            setIsInviteModalOpen(true);
-          }}
-          companyName={selectedCompany.companyName}
-          companyEmail={selectedCompany.email}
-        />
-      )}
+                if (proposals.length === 0) {
+                  addToast('You need to create a proposal first before inviting team members', 'error');
+                  return;
+                }
 
-      {/* Invite Team Member Modal */}
-      {selectedProposal && selectedCompany && (
-        <InviteTeamMemberModal
-          proposalId={selectedProposal.id}
-          proposalTitle={selectedProposal.title}
-          isOpen={isInviteModalOpen}
-          onClose={() => {
-            setIsInviteModalOpen(false);
-            setSelectedProposal(null);
-            setSelectedCompany(null);
+                const proposal = proposals[0];
+                const inviteData = {
+                  proposalId: proposal.id,
+                  memberEmail: company.email,
+                  role: 'Team Member',
+                  rateRange: {
+                    min: 100,
+                    max: 150,
+                  },
+                  message: `Hi ${company.companyName}, I'd like to invite you to collaborate on "${proposal.title}". Looking forward to working together!`,
+                };
+
+                const response = await teamAPI.invite(inviteData);
+                if (response.error) {
+                  addToast(response.message || 'Failed to send invitation', 'error');
+                } else {
+                  addToast(`Invitation sent to ${company.companyName} for "${proposal.title}"`, 'success');
+                }
+              } catch (err: any) {
+                addToast(err.message || 'Failed to send invitation', 'error');
+              }
+            } else {
+              addToast('This company does not have an email address on file', 'error');
+            }
           }}
-          onInviteSent={() => {
-            setIsInviteModalOpen(false);
-            setSelectedProposal(null);
-            setSelectedCompany(null);
-          }}
-          selectedCompany={selectedCompany}
         />
       )}
     </div>
