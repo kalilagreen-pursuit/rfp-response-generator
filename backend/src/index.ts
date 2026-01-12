@@ -11,6 +11,7 @@ import networkRoutes from './routes/network.routes.js';
 import teamRoutes from './routes/team.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import qrRoutes from './routes/qr.routes.js';
+import videoRoutes from './routes/video.routes.js';
 import { env } from './utils/validateEnv.js';
 import { requestLogger, errorLogger, performanceMonitor } from './middleware/logger.js';
 
@@ -180,6 +181,9 @@ app.use('/api/analytics', analyticsRoutes);
 
 // QR Code and Lead Capture routes
 app.use('/api', qrRoutes);
+
+// Video proxy routes (for secure video access)
+app.use('/api/video', videoRoutes);
 
 // Error handling middleware
 app.use(errorLogger);

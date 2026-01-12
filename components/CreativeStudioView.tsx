@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import type { ProjectFolder } from '../types';
 import { SparklesIcon, RefreshIcon, ImageIcon } from './icons';
 import VideoPitcherView from './VideoPitcherView';
-import { ai, generateVideoPitch, GEMINI_API_KEY } from '@/services/geminiService';
+import { ai, generateVideoPitch } from '@/services/geminiService';
 
 interface CreativeStudioViewProps {
     projects: ProjectFolder[];

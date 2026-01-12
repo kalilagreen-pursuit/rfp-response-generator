@@ -6,12 +6,20 @@ dotenv.config();
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
+// SECURITY FIX: Use environment variable for test passwords instead of hardcoding
+const TEST_PASSWORD = process.env.TEST_PASSWORD || 'Demo123!';
+
+if (process.env.NODE_ENV === 'production' && !process.env.TEST_PASSWORD) {
+  console.warn('⚠️  WARNING: TEST_PASSWORD not set in production. Using default password.');
+  console.warn('⚠️  Set TEST_PASSWORD environment variable for production test accounts.');
+}
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const mockProfiles = [
   {
     email: 'techsolutions@example.com',
-    password: 'Demo123!',
+    password: TEST_PASSWORD,
     profile: {
       company_name: 'TechSolutions Inc.',
       industry: 'Technology',
@@ -25,7 +33,7 @@ const mockProfiles = [
   },
   {
     email: 'dataexperts@example.com',
-    password: 'Demo123!',
+    password: TEST_PASSWORD,
     profile: {
       company_name: 'Data Experts LLC',
       industry: 'Data Analytics',
@@ -39,7 +47,7 @@ const mockProfiles = [
   },
   {
     email: 'cloudmasters@example.com',
-    password: 'Demo123!',
+    password: TEST_PASSWORD,
     profile: {
       company_name: 'CloudMasters',
       industry: 'Cloud Infrastructure',
@@ -53,7 +61,7 @@ const mockProfiles = [
   },
   {
     email: 'designstudio@example.com',
-    password: 'Demo123!',
+    password: TEST_PASSWORD,
     profile: {
       company_name: 'Creative Design Studio',
       industry: 'Design & UX',
@@ -67,7 +75,7 @@ const mockProfiles = [
   },
   {
     email: 'cybersecure@example.com',
-    password: 'Demo123!',
+    password: TEST_PASSWORD,
     profile: {
       company_name: 'CyberSecure Solutions',
       industry: 'Cybersecurity',
@@ -81,7 +89,7 @@ const mockProfiles = [
   },
   {
     email: 'mobiledevs@example.com',
-    password: 'Demo123!',
+    password: TEST_PASSWORD,
     profile: {
       company_name: 'Mobile Devs Pro',
       industry: 'Mobile Development',
@@ -95,7 +103,7 @@ const mockProfiles = [
   },
   {
     email: 'aiinnovations@example.com',
-    password: 'Demo123!',
+    password: TEST_PASSWORD,
     profile: {
       company_name: 'AI Innovations',
       industry: 'Artificial Intelligence',
@@ -109,7 +117,7 @@ const mockProfiles = [
   },
   {
     email: 'consultinggroup@example.com',
-    password: 'Demo123!',
+    password: TEST_PASSWORD,
     profile: {
       company_name: 'Strategic Consulting Group',
       industry: 'Business Consulting',
@@ -182,7 +190,8 @@ async function seedMockProfiles() {
   console.log('  - Security');
   console.log('  - Data Analytics');
   console.log('  - UI/UX Design');
-  console.log('\nDefault password for all mock accounts: Demo123!');
+  console.log(`\n⚠️  SECURITY: Default password for all mock accounts: ${TEST_PASSWORD}`);
+  console.log('⚠️  Set TEST_PASSWORD environment variable to customize (recommended for production).');
 }
 
 seedMockProfiles().catch(console.error);

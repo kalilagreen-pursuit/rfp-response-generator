@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import type { ProjectFolder } from '../types';
 import { useAppContext } from '../contexts/AppContext';
-import { ai, generateVideoPitch, GEMINI_API_KEY } from '../services/geminiService';
+import { ai, generateVideoPitch } from '../services/geminiService';
+import { getAuthToken } from '../services/api';
 import { VideoIcon } from './icons';
 
 interface VideoPitcherViewProps {
@@ -102,8 +103,9 @@ const VideoPitcherView: React.FC<VideoPitcherViewProps> = ({ project, onUpdatePr
                 ) : project.videoPitchUrl ? (
                     <video
                         controls
-                        src={`${project.videoPitchUrl}&key=${GEMINI_API_KEY}`}
+                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/video/proxy?url=${encodeURIComponent(project.videoPitchUrl)}`}
                         className="w-full h-full rounded-lg"
+                        crossOrigin="anonymous"
                     >
                         Your browser does not support the video tag.
                     </video>

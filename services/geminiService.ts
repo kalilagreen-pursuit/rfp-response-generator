@@ -5,15 +5,27 @@ import type { ProjectFolder, Proposal, Scorecard, ProposalTemplate, Slideshow, C
 import { calculateProjectDatesAndPhases } from '../utils/timelineParser';
 import { formatCurrency } from '../utils/formatters';
 
+// SECURITY WARNING: This client-side service is deprecated for security reasons.
+// API keys should NEVER be exposed to the client bundle.
+// TODO: Migrate all AI features to backend endpoints (backend/src/services/gemini.service.ts)
+// For now, this service will fail gracefully if API_KEY is not available.
+
 // Use the key defined by vite.config.ts for the browser environment.
+// NOTE: vite.config.ts no longer exposes API keys - this will fail until migration is complete
 const apiKey = process.env.API_KEY;
 
 if (!apiKey) {
-    throw new Error("API_KEY environment variable not set. This is configured in `vite.config.ts` from your `.env.local` file. Please ensure `GEMINI_API_KEY` is set in `.env.local` and the dev server is restarted.");
+    console.warn("⚠️ SECURITY: API_KEY not available. Client-side AI features are disabled.");
+    console.warn("⚠️ Please migrate to backend API endpoints for secure AI generation.");
+    // Don't throw - allow app to load, but AI features will fail gracefully
 }
 
-export const GEMINI_API_KEY = apiKey; // Export the validated key for direct use.
-export const ai = new GoogleGenAI({ apiKey });
+// SECURITY FIX: Removed GEMINI_API_KEY export to prevent API key exposure
+// The API key should NEVER be accessible from browser console or client code
+// export const GEMINI_API_KEY = apiKey; // REMOVED FOR SECURITY
+
+// Only initialize if API key is available (for backward compatibility during migration)
+export const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 const handleGeminiError = (error: unknown): Error => {
     console.error("Gemini API Error:", error);

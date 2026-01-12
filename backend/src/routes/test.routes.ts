@@ -262,7 +262,7 @@ router.post('/mock-company', async (_req, res) => {
     // Create a test user for this company
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: email,
-      password: 'Demo123!',
+      password: process.env.TEST_PASSWORD || 'Demo123!',
       email_confirm: true,
       user_metadata: {
         full_name: 'PC Coggins Admin'

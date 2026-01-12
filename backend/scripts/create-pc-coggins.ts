@@ -135,7 +135,7 @@ async function createPCCoggins() {
       console.log('Creating new user...');
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: email,
-        password: 'Demo123!',
+        password: process.env.TEST_PASSWORD || 'Demo123!',
         email_confirm: true,
         user_metadata: {
           full_name: 'PC Coggins Admin'
